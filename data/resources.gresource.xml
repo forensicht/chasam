@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+    <gresource prefix="/com/github/forensicht/ChaSAM/app/">
+        <file compressed="true" alias="style.css">style.css</file>
+        <file compressed="true" alias="style-dark.css">style-dark.css</file>
+    </gresource>
+
+    <gresource prefix="/com/github/forensicht/ChaSAM/icons">
+        <file alias="ChaSAM.png">icons/ChaSAM.png</file>
+        <file alias="en.png">icons/actions/en.png</file>
+        <file alias="es.png">icons/actions/es.png</file>
+        <file alias="pt.png">icons/actions/pt.png</file>
+    </gresource>
+</gresources>
