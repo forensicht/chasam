@@ -71,6 +71,7 @@ impl AsyncComponent for SearchBarModel {
                 set_sensitive: model.stopped,
                 set_icon_name: icon_name::LOUPE_LARGE,
                 set_tooltip_text: Some(fl!("search")),
+                set_css_classes: &["suggested-action"],
                 connect_clicked => SearchBarInput::StartSearch,
             },
         }

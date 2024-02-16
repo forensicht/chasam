@@ -5,6 +5,11 @@ menu = Menu
 about = Acerca de
 quit = Salir
 
+# Sidebar
+csam = CSAM
+face-search = Reconocimiento facial
+csam-db = Base de datos CSAM
+
 # Preferences
 preferences = Preferencias
 appearance = Apariencia

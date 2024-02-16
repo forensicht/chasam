@@ -31,7 +31,7 @@ ffmpeg-next = "6.1.0"
 toml = "0.8.8"
 
 [dependencies.tokio]
-version = "1.28"
+version = "1.36"
 features = [
     "rt",
     "rt-multi-thread",
@@ -73,13 +73,13 @@ features = [
     "cameras",
     "play-large",
     "image",
-    "encode",
     "pencil-and-paper",
-    "eraser",
-    "funnel",
     "plus-large",
     "minus-large",
-    "file-manager"
+    "file-manager",
+    "stamp",
+    "parent",
+    "harddisk"
 ]
 
 [build-dependencies]

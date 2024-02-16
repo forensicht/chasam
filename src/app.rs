@@ -1,18 +1,20 @@
 pub mod config;
 pub mod models;
 pub mod components;
-
-use std::path::PathBuf;
+pub mod factories;
 
 use crate::fl;
 use crate::app::components::{
     about_dialog::AboutDialog,
-    searchbar::{
-        SearchBarModel,
-        SearchBarInput,
-        SearchBarOutput,
-    },
     preferences::PreferencesModel,
+    sidebar::{
+        SidebarModel,
+        SidebarOutput,
+    },
+    content::{
+        ContentModel,
+        ContentInput,
+    },
 };
 
 use relm4::{
@@ -20,7 +22,6 @@ use relm4::{
     gtk::prelude::*,
     gtk::glib,
     adw,
-    adw::Toast,
     component::{
         AsyncComponent,
         AsyncComponentParts,
@@ -43,19 +44,22 @@ use relm4::{
 use relm4_icons::icon_name;
 
 pub struct App {
-    searchbar: AsyncController<SearchBarModel>,
+    sidebar: AsyncController<SidebarModel>,
+    content: AsyncController<ContentModel>,
     preferences: Option<AsyncController<PreferencesModel>>,
     about_dialog: Option<Controller<AboutDialog>>,
 }
 
 impl App {
     pub fn new(
-        searchbar: AsyncController<SearchBarModel>,
+        sidebar: AsyncController<SidebarModel>,
+        content: AsyncController<ContentModel>,
         preferences: Option<AsyncController<PreferencesModel>>,
         about_dialog: Option<Controller<AboutDialog>>,
     ) -> Self {
         Self {
-            searchbar,
+            sidebar,
+            content,
             preferences,
             about_dialog,
         }
@@ -64,9 +68,7 @@ impl App {
 
 #[derive(Debug)]
 pub enum AppInput {
-    StartSearch(PathBuf),
-    SearchCompleted(usize),
-    Notify(String, u32),
+    SelectedSidebarOption(models::SidebarOption),
     Quit,
 }
 
@@ -95,6 +97,7 @@ impl AsyncComponent for App {
     view! {
         #[root]
         main_window = adw::ApplicationWindow {
+            set_size_request: (800, 640),
             set_default_size: (1280, 968),
             set_resizable: true,
 
@@ -103,56 +106,41 @@ impl AsyncComponent for App {
                 glib::Propagation::Stop
             },
 
-            #[name = "content"]
             gtk::Box {
-                set_orientation: gtk::Orientation::Vertical, 
+                set_orientation: gtk::Orientation::Horizontal,
 
-                #[name = "content_header"]
-                append = &adw::HeaderBar {
-                    set_hexpand: true,
-                    set_css_classes: &["flat"],
-                    set_show_start_title_buttons: false,
-                    set_show_end_title_buttons: true,
-
-                    pack_end = &gtk::MenuButton {
-                        set_tooltip: fl!("menu"),
-                        set_valign: gtk::Align::Center,
-                        set_css_classes: &["flat"],
-                        set_icon_name: icon_name::MENU,
-                        set_menu_model: Some(&primary_menu),
-                    },
-
-                    #[wrap(Some)]
-                    set_title_widget = model.searchbar.widget(),
-                },
-
-                #[name(overlay)]
-                adw::ToastOverlay {
-                    #[wrap(Some)]
-                    set_child = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_hexpand: true,
-                        set_vexpand: true,
-
-                        // append: model.content.widget(),
-                    },
-                },
-
+                #[name(sidebar)]
                 gtk::Box {
-                    set_orientation: gtk::Orientation::Horizontal,
-                    set_hexpand: true,
-                    set_margin_start: 5,
-                    set_margin_end: 5,
-                    set_margin_bottom: 5,
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_css_classes: &["view"],
+                    set_width_request: 50,
 
-                    gtk::Label {
-                        #[watch]
-                        set_label: "statusbar",
-                        set_margin_start: 6,
-                        set_margin_end: 12,
-                        set_halign: gtk::Align::Start,
+                    gtk::CenterBox {
+                        set_visible: true,
+						set_margin_top: 6,
+						set_margin_bottom: 6,
+
+						#[wrap(Some)]
+						set_center_widget = &gtk::Box {
+							set_orientation: gtk::Orientation::Vertical,
+
+							gtk::MenuButton {
+								set_valign: gtk::Align::Center,
+								set_css_classes: &["flat"],
+								set_icon_name: icon_name::MENU,
+                                set_tooltip: fl!("menu"),
+								set_menu_model: Some(&primary_menu),
+							},
+						},
                     },
+
+                    gtk::Separator::default(),
+                    append: model.sidebar.widget(),
                 },
+
+                gtk::Separator::default(),
+               
+                append: model.content.widget(),
             }
         }
     }
@@ -215,15 +203,19 @@ impl AsyncComponent for App {
 
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
 
-        let searchbar_controller = SearchBarModel::builder()
+        let sidebar_controller = SidebarModel::builder()
             .launch(())
             .forward(sender.input_sender(), |output| match output {
-                SearchBarOutput::StartSearch(path) => AppInput::StartSearch(path),
-                SearchBarOutput::Notify(msg, timeout) => AppInput::Notify(msg, timeout),
+                SidebarOutput::SelectedOption(option) => AppInput::SelectedSidebarOption(option),
             });
 
+        let content_controller = ContentModel::builder()
+            .launch(())
+            .detach();
+
         let mut model = App::new(
-            searchbar_controller, 
+            sidebar_controller,
+            content_controller,
             None, 
             None,
         );
@@ -283,14 +275,8 @@ impl AsyncComponent for App {
         _root: &Self::Root,
     ) {
         match message {
-            AppInput::StartSearch(path) => {
-                println!("{}", path.display());
-            }
-            AppInput::SearchCompleted(_count) => {
-                self.searchbar.emit(SearchBarInput::SearchCompleted);
-            }
-            AppInput::Notify(msg, timeout) => {
-                widgets.overlay.add_toast(toast(msg, timeout));
+            AppInput::SelectedSidebarOption(sidebar_option) => {
+                self.content.emit(ContentInput::SelectSidebarOption(sidebar_option));
             }
             AppInput::Quit => {
                 main_adw_application().quit();
@@ -299,11 +285,4 @@ impl AsyncComponent for App {
 
         self.update_view(widgets, sender);
     }
-}
-
-pub fn toast<T: ToString>(title: T, timeout: u32) -> Toast {
-    Toast::builder()
-        .title(title.to_string().as_str())
-        .timeout(timeout)
-        .build()
 }

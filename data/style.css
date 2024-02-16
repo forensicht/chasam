@@ -48,3 +48,7 @@ tabbar > revealer > box {
 .list-padding-bottom {
 	padding-bottom: 100px;
 }
+
+.sidebar-icon-size {
+    -gtk-icon-size: 22px;
+}
