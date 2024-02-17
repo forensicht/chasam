@@ -112,7 +112,6 @@ impl AsyncComponent for App {
                 #[name(sidebar)]
                 gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
-                    set_css_classes: &["view"],
                     set_width_request: 50,
 
                     gtk::CenterBox {
@@ -134,11 +133,8 @@ impl AsyncComponent for App {
 						},
                     },
 
-                    gtk::Separator::default(),
                     append: model.sidebar.widget(),
                 },
-
-                gtk::Separator::default(),
                
                 append: model.content.widget(),
             }

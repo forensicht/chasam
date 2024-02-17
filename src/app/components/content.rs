@@ -1,9 +1,15 @@
-use crate::app::models::SidebarOption;
+use crate::app::{
+    models::SidebarOption,
+    components::{
+        csam::CsamModel,
+        face::FaceModel,
+        csam_db::CsamDBModel,
+    },
+};
 
 use relm4::{
     prelude::*,
     gtk::prelude::*,
-    adw,
     component::{
         AsyncComponent,
         AsyncComponentParts,
@@ -12,7 +18,26 @@ use relm4::{
 };
 
 pub struct ContentModel {
-    sidebar_option: SidebarOption,
+    csam: AsyncController<CsamModel>,
+    face: AsyncController<FaceModel>,
+    csam_db: AsyncController<CsamDBModel>,
+    sidebar_option: Option<SidebarOption>,
+}
+
+impl ContentModel {
+    pub fn new(
+        csam: AsyncController<CsamModel>,
+        face: AsyncController<FaceModel>,
+        csam_db: AsyncController<CsamDBModel>,
+        sidebar_option: Option<SidebarOption>,
+    ) -> Self {
+        Self {
+            csam,
+            face,
+            csam_db,
+            sidebar_option,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -36,51 +61,35 @@ impl AsyncComponent for ContentModel {
 
             #[transition = "Crossfade"]
             append = match model.sidebar_option {
-                SidebarOption::CSAM => {
-                    adw::HeaderBar {
-                        set_hexpand: true,
-                        set_css_classes: &["flat"],
-                        set_show_start_title_buttons: false,
-                        set_show_end_title_buttons: true,
-
-                        #[wrap(Some)]
-                        set_title_widget = &gtk::Label {
-                            set_hexpand: true,
-                            #[watch]
-                            set_label: model.sidebar_option.name().as_str(),
-                        }, 
-                    } 
-                },
-                SidebarOption::Face => { 
-                    adw::HeaderBar {
-                        set_hexpand: true,
-                        set_css_classes: &["flat"],
-                        set_show_start_title_buttons: false,
-                        set_show_end_title_buttons: true,
-
-                        #[wrap(Some)]
-                        set_title_widget = &gtk::Label {
-                            set_hexpand: true,
-                            #[watch]
-                            set_label: model.sidebar_option.name().as_str(),
-                        }, 
+                Some(SidebarOption::CSAM) => {
+                    gtk::Box {
+                        #[watch]
+						set_visible: model.sidebar_option.is_some(),
+                        set_orientation: gtk::Orientation::Vertical,
+                        append: model.csam.widget(),
                     }
                 },
-                SidebarOption::DB => {
-                    adw::HeaderBar {
-                        set_hexpand: true,
-                        set_css_classes: &["flat"],
-                        set_show_start_title_buttons: false,
-                        set_show_end_title_buttons: true,
-
-                        #[wrap(Some)]
-                        set_title_widget = &gtk::Label {
-                            set_hexpand: true,
-                            #[watch]
-                            set_label: model.sidebar_option.name().as_str(),
-                        }, 
+                Some(SidebarOption::Face) => {
+                    gtk::Box {
+                        #[watch]
+						set_visible: model.sidebar_option.is_some(),
+                        set_orientation: gtk::Orientation::Vertical,
+                        append: model.face.widget(),
                     }
                 },
+                Some(SidebarOption::DB) => {
+                    gtk::Box {
+                        #[watch]
+						set_visible: model.sidebar_option.is_some(),
+                        set_orientation: gtk::Orientation::Vertical,
+                        append: model.csam_db.widget(),
+                    }
+                },
+                None => {
+                    gtk::Label {
+                        set_label: "Not Found!",
+                    }
+                }
             }
         } 
     }
@@ -90,9 +99,24 @@ impl AsyncComponent for ContentModel {
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let model = ContentModel {
-            sidebar_option: SidebarOption::CSAM,
-        };
+        let csam_controller = CsamModel::builder()
+            .launch(())
+            .detach();
+
+        let face_controller = FaceModel::builder()
+            .launch(())
+            .detach();
+
+        let csam_db_controller = CsamDBModel::builder()
+            .launch(())
+            .detach();
+
+        let model = ContentModel::new(
+            csam_controller,
+            face_controller, 
+            csam_db_controller,
+            Some(SidebarOption::CSAM),
+        );
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -107,7 +131,7 @@ impl AsyncComponent for ContentModel {
     ) {
         match message {
             ContentInput::SelectSidebarOption(sidebar_option) => {
-                self.sidebar_option = sidebar_option;
+                self.sidebar_option.replace(sidebar_option);
             }
         }
 
