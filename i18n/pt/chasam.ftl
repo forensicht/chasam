@@ -10,6 +10,18 @@ csam = CSAM
 face-search = Reconhecimento facial
 csam-db = Banco de dados de CSAM
 
+# Toolbars
+zoom-out = Diminuir zoom
+zoom-in = Aumentar zoom
+deselect-all = Desmarcar todos
+select-all = Marcar todos
+filter = Filtro
+size = Tamanho
+greater-than-500-kb = Maior que 500 KB
+all-sizes = Exibir tudo
+clean-filters = Limpar filtros
+selected-count = Selecionados:
+
 # Preferences
 preferences = Preferências
 appearance = Aparência

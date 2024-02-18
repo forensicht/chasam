@@ -52,3 +52,15 @@ tabbar > revealer > box {
 .sidebar-icon-size {
     -gtk-icon-size: 22px;
 }
+
+.padding-all {
+    padding: 4px;
+}
+
+.padding-h {
+    padding: 0 4px;
+}
+
+.padding-v {
+    padding: 4px 0;
+}
