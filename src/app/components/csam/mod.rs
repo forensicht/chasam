@@ -1,8 +1,16 @@
 mod toolbar;
 
-use crate::app::components::searchbar::{
-    SearchBarModel,
-    SearchBarOutput,
+use crate::app::{
+    models,
+    components::searchbar::{
+        SearchBarModel,
+        SearchBarOutput,
+    },
+    factories::media::{
+        MediaInput, 
+        MediaModel, 
+        MediaOutput
+    },
 };
 use toolbar::{
     ToolbarModel,
@@ -14,30 +22,36 @@ use std::path::PathBuf;
 
 use relm4::{
     adw, 
+    prelude::*,
+    gtk::prelude::*, 
     component::{
         AsyncComponent, 
-        AsyncComponentSender, 
+        AsyncComponentController, 
         AsyncComponentParts, 
+        AsyncComponentSender, 
         AsyncController,
-        AsyncComponentController,
     }, 
-    gtk::prelude::*, 
-    prelude::*,
+    factory::AsyncFactoryVecDeque, 
 };
 
 pub struct CsamModel {
     searchbar: AsyncController<SearchBarModel>,
     toolbar: AsyncController<ToolbarModel>,
+    media_list_factory: AsyncFactoryVecDeque<MediaModel>,
+    thumbnail_size: i32,
 }
 
 impl CsamModel {
     pub fn new(
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
+        media_list_factory: AsyncFactoryVecDeque<MediaModel>,
     ) -> Self {
         Self {
             searchbar,
             toolbar,
+            media_list_factory,
+            thumbnail_size: models::media::THUMBNAIL_SIZE,
         }
     }
 }
@@ -52,7 +66,6 @@ pub enum CsamInput {
     ZoomIn,
     ZoomOut,
     SelectAllVideos(bool),
-    SelectedItem(bool),
     SizeFilter0KB(bool),
     SizeFilter30KB(bool),
     SizeFilter100KB(bool),
@@ -60,6 +73,8 @@ pub enum CsamInput {
     SizeFilterA500KB(bool),
     SearchEntry(String),
 
+    MediaListSelect(usize),
+    SelectedMedia(bool),
     Notify(String, u32),
 }
 
@@ -118,6 +133,24 @@ impl AsyncComponent for CsamModel {
                                 set_width_request: 800,
                                 set_vexpand: true,
                                 set_margin_end: 6,
+
+                                gtk::ScrolledWindow {
+                                    set_hscrollbar_policy: gtk::PolicyType::Never,
+                                    set_hexpand: true,
+                                    set_vexpand: true,
+
+                                    #[local_ref]
+                                    media_list_widget -> gtk::FlowBox {
+                                        set_valign: gtk::Align::Start,
+                                        set_max_children_per_line: 12,
+                                        set_selection_mode: gtk::SelectionMode::None,
+                                        set_activate_on_single_click: false,
+                                        connect_child_activated[sender] => move |_, child| {
+                                            let index = child.index() as usize;
+                                            sender.input(CsamInput::MediaListSelect(index));
+                                        },
+                                    },
+                                },
                             },
 
                             #[wrap(Some)]
@@ -159,10 +192,18 @@ impl AsyncComponent for CsamModel {
                 ToolbarOutput::SizeFilterGreater500KB(is_active) => CsamInput::SizeFilterA500KB(is_active),
             });
 
+        let media_list_factory = AsyncFactoryVecDeque::builder()
+            .launch_default()
+            .forward(sender.input_sender(), |output| match output {
+                MediaOutput::Selected(is_selected) => CsamInput::SelectedMedia(is_selected),
+            });
+
         let model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
+            media_list_factory,
         );
+        let media_list_widget = model.media_list_factory.widget();
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -191,9 +232,6 @@ impl AsyncComponent for CsamModel {
             CsamInput::SelectAllVideos(is_selected) => {
 
             }
-            CsamInput::SelectedItem(is_selected) => {
-
-            }
             CsamInput::SearchEntry(query) => {
 
             }
@@ -210,6 +248,12 @@ impl AsyncComponent for CsamModel {
 
             }
             CsamInput::SizeFilterA500KB(is_active) => {
+
+            }
+            CsamInput::MediaListSelect(index) => {
+
+            }
+            CsamInput::SelectedMedia(is_selected) => {
 
             }
             CsamInput::Notify(msg, timeout) => {
