@@ -111,17 +111,8 @@ mod tests {
 
     #[test]
     fn test_difference_hash() {
-        let l_path = std::env::current_dir()
-            .unwrap()
-            .join("tests")
-            // .join("original.png");
-            .join("cavalo.jpg");
-
-        let r_path = std::env::current_dir()
-            .unwrap()
-            .join("tests")
-            // .join("original-blur.png");
-            .join("cavalo-2.jpg");
+        let l_path = Path::new("D:/images_test/horse.jpg");
+        let r_path = Path::new("D:/images_test/horse_2.jpg");
 
         let l_hash = match difference_hash(&l_path) {
             Ok(hash) => {
@@ -129,7 +120,7 @@ mod tests {
                 hash
             }
             Err(err) => {
-                eprintln!("{}", format!("{err}"));
+                assert!(false, "{err}");
                 0
             }
         };
@@ -140,27 +131,18 @@ mod tests {
                 hash
             }
             Err(err) => {
-                eprintln!("{}", format!("{err}"));
+                assert!(false, "{err}");
                 0
             }
         };
 
-        println!("Distance: {}", distance(l_hash, r_hash));
+        assert!(true, "Distance: {}", distance(l_hash, r_hash));
     }
 
     #[test]
     fn test_average_hash() {
-        let l_path = std::env::current_dir()
-            .unwrap()
-            .join("tests")
-            // .join("original.png");
-            .join("cavalo.jpg");
-
-        let r_path = std::env::current_dir()
-            .unwrap()
-            .join("tests")
-            // .join("original-blur.png");
-            .join("cavalo-2.jpg");
+        let l_path = Path::new("D:/images_test/horse.jpg");
+        let r_path = Path::new("D:/images_test/horse_2.jpg");
 
         let l_hash = match average_hash(&l_path) {
             Ok(hash) => {
@@ -168,7 +150,7 @@ mod tests {
                 hash
             }
             Err(err) => {
-                eprintln!("{}", format!("{err}"));
+                assert!(false, "{err}");
                 0
             }
         };
@@ -179,12 +161,12 @@ mod tests {
                 hash
             }
             Err(err) => {
-                eprintln!("{}", format!("{err}"));
+                assert!(false, "{err}");
                 0
             }
         };
 
-        println!("Distance: {}", distance(l_hash, r_hash));
+        assert!(true, "Distance: {}", distance(l_hash, r_hash));
     }
 
     #[test]

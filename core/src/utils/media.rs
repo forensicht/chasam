@@ -1,3 +1,5 @@
+use anyhow::Result;
+use image::ImageError;
 use sha1::{Digest, Sha1};
 use std::{fs, io, path::Path};
 
@@ -73,4 +75,71 @@ where
         hash = phash::difference_hash(p)?;
     }
     Ok(hash)
+}
+
+#[allow(unused)]
+pub fn make_thumbnail<PA, PB>(
+    media_path: PA,
+    thumb_path: PB,
+    thumb_size: u32,
+) -> Result<bool, ImageError>
+where
+    PA: AsRef<Path>,
+    PB: AsRef<Path>,
+{
+    let img = image::open(media_path.as_ref())?;
+
+    if img.width() > thumb_size || img.height() > thumb_size {
+        img.thumbnail(thumb_size, thumb_size)
+            .save(thumb_path.as_ref())?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_image() {
+        assert_eq!(is_image("jpeg"), true);
+    }
+
+    #[test]
+    fn test_is_video() {
+        assert_eq!(is_video("mp4"), true);
+    }
+
+    #[test]
+    fn test_is_media() {
+        assert_eq!(is_media("bmp"), true);
+    }
+
+    #[test]
+    fn test_get_file_hash_sha1() {
+        let path = Path::new("D:/images_test/horse.jpg");
+        let hash = get_file_hash_sha1(path).unwrap_or_default();
+        assert_ne!(hash, "");
+    }
+
+    #[test]
+    fn test_get_file_hash_md5() {
+        let path = Path::new("D:/images_test/horse.jpg");
+        let hash = get_file_hash_md5(path).unwrap_or_default();
+        assert_ne!(hash, "");
+    }
+
+    #[test]
+    fn test_make_thumbnail() {
+        let media_path = Path::new("D:/images_test/horse.jpg");
+        let thumb_path = Path::new("D:/images_test/horse_thumb.jpg");
+        let thumb_size = 320;
+        
+        match make_thumbnail(media_path, thumb_path, thumb_size) {
+            Ok(_) => assert!(true),
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
 }

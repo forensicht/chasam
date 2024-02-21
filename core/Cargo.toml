@@ -27,6 +27,7 @@ version = "1.36"
 features = [
     "rt",
     "rt-multi-thread",
+    "sync",
     "fs",
     "io-util",
     "macros",

@@ -1,3 +1,5 @@
+use core_chasam as core;
+
 pub const ZOOM_SIZE: i32 = 32;
 pub const THUMBNAIL_SIZE: i32 = 160;
 
@@ -5,6 +7,7 @@ pub const THUMBNAIL_SIZE: i32 = 160;
 pub struct Media {
     pub name: String,
     pub path: String,
+    pub thumb_path: String,
     pub media_type: String,
     pub size: usize,
     pub last_modified: i64,
@@ -14,6 +17,25 @@ pub struct Media {
     pub hamming: u32,
     pub is_selected: bool,
     pub thumbnail_size: i32,
+}
+
+impl From<&core::csam::Media> for Media {
+    fn from(media: &core::csam::Media) -> Self {
+        Self {
+            name: media.name.clone(),
+            path: media.path.clone(),
+            thumb_path: media.thumb_path.clone(),
+            media_type: media.media_type.clone(),
+            size: media.size,
+            last_modified: media.last_modified,
+            hash: media.hash.clone(),
+            phash: media.phash,
+            match_type: media.match_type.clone(),
+            hamming: media.hamming,
+            is_selected: false,
+            thumbnail_size: THUMBNAIL_SIZE,
+        }
+    }
 }
 
 #[derive(Debug)]

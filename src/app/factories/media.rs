@@ -1,4 +1,3 @@
-use crate::fl;
 use crate::app::models;
 
 use relm4::{
@@ -6,11 +5,11 @@ use relm4::{
     gtk,
     gtk::prelude::*,
     gtk::pango,
-    gtk::gdk_pixbuf::{
-        Pixbuf,
-        Colorspace,
-    },
-    gtk::glib,
+    // gtk::gdk_pixbuf::{
+    //     Pixbuf,
+    //     Colorspace,
+    // },
+    // gtk::glib,
     view,
     factory::{
         AsyncFactoryComponent,
@@ -23,7 +22,7 @@ use relm4::{
 pub struct MediaModel {
     pub media: models::Media,
     pub index: DynamicIndex,
-    pixbuf: Option<Pixbuf>,
+    // pixbuf: Option<Pixbuf>,
 }
 
 #[derive(Debug)]
@@ -63,15 +62,8 @@ impl AsyncFactoryComponent for MediaModel {
                     set_can_shrink: true,
                     set_halign: gtk::Align::Center,
                     set_valign: gtk::Align::Center,
-                    set_pixbuf: self.pixbuf.as_ref(),
-                    // add_controller = gtk::GestureClick {
-                    //     set_button: 3,
-                    //     connect_released[checkbox] => move |gesture, _, _, _| {
-                    //         gesture.set_state(gtk::EventSequenceState::Claimed);
-                    //         let is_active = !checkbox.is_active();
-                    //         checkbox.set_active(is_active);  
-                    //     }
-                    // }
+                    // set_file: Some(&gtk::gio::File::for_path(self.media.thumb_path.as_str())),
+                    // set_pixbuf: self.pixbuf.as_ref(),
                 },
 
                 #[name(checkbox)]
@@ -125,7 +117,7 @@ impl AsyncFactoryComponent for MediaModel {
         index: &DynamicIndex,
         _sender: AsyncFactorySender<Self>,
     ) -> Self {
-        let filename = media.path.as_str();
+        // let filename = media.path.as_str();
 
         // let pixbuf = match core::video::thumbnail(filename).await {
         //     Ok(thumb) => {
@@ -163,7 +155,7 @@ impl AsyncFactoryComponent for MediaModel {
         Self {
             media,
             index: index.clone(),
-            pixbuf: None,
+            // pixbuf: None,
         }
     }
 

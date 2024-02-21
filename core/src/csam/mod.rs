@@ -1,2 +1,5 @@
-pub mod media;
-pub mod search;
+mod media;
+mod search;
+
+pub use media::*;
+pub use search::*;

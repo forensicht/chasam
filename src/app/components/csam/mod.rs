@@ -1,5 +1,8 @@
 mod toolbar;
 
+use crate::fl;
+use core_chasam as service;
+use core_chasam::csam::StateMedia;
 use crate::app::{
     models,
     components::searchbar::{
@@ -27,8 +30,9 @@ use relm4::{
         AsyncComponentParts, 
         AsyncComponentSender, 
         AsyncController,
-    }, factory::AsyncFactoryVecDeque, gtk::prelude::*, prelude::*, RelmIterChildrenExt 
+    }, factory::AsyncFactoryVecDeque, gtk::prelude::*, prelude::*, RelmIterChildrenExt
 };
+use anyhow::Result;
 
 pub struct CsamModel {
     searchbar: AsyncController<SearchBarModel>,
@@ -36,6 +40,7 @@ pub struct CsamModel {
     media_list_factory: AsyncFactoryVecDeque<MediaModel>,
     media_list_filter: models::MediaFilter,
     thumbnail_size: i32,
+    service: service::csam::SearchMedia,
 }
 
 impl CsamModel {
@@ -43,6 +48,7 @@ impl CsamModel {
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
         media_list_factory: AsyncFactoryVecDeque<MediaModel>,
+        service: service::csam::SearchMedia,
     ) -> Self {
         Self {
             searchbar,
@@ -50,6 +56,7 @@ impl CsamModel {
             media_list_factory,
             media_list_filter: models::MediaFilter::default(),
             thumbnail_size: models::media::THUMBNAIL_SIZE,
+            service,
         }
     }
 }
@@ -76,12 +83,19 @@ pub enum CsamInput {
     Notify(String, u32),
 }
 
+#[derive(Debug)]
+pub enum CsamCommandOutput {
+    SearchCompleted,
+    AddMedia(Result<models::Media>),
+    MediaFound(usize),
+}
+
 #[relm4::component(pub async)]
 impl AsyncComponent for CsamModel {
     type Init = ();
     type Input = CsamInput;
     type Output = ();
-    type CommandOutput = ();
+    type CommandOutput = CsamCommandOutput;
 
     view! {
         gtk::Box {
@@ -196,10 +210,12 @@ impl AsyncComponent for CsamModel {
                 MediaOutput::Selected(is_selected) => CsamInput::SelectedMedia(is_selected),
             });
 
+        let service = service::csam::SearchMedia::new();
         let model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
             media_list_factory,
+            service,
         );
         let media_list_widget = model.media_list_factory.widget();
         let widgets = view_output!();
@@ -222,7 +238,7 @@ impl AsyncComponent for CsamModel {
                 self.apply_media_zoom(false).await;
             }
             CsamInput::StartSearch(path) => {
-                println!("{}", path.display());
+                self.on_search(path, &sender).await;
             }
             CsamInput::SearchCompleted(count) => {
                 println!("{}", count);
@@ -267,6 +283,31 @@ impl AsyncComponent for CsamModel {
 
         self.update_view(widgets, sender);
     }
+
+    async fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        _sender: AsyncComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        match message {
+            CsamCommandOutput::SearchCompleted => {
+                println!("Search Completed");
+            }
+            CsamCommandOutput::MediaFound(count) => {
+                println!("Media Found: {}", count);
+            }
+            CsamCommandOutput::AddMedia(result) => {
+                match result {
+                    Ok(media) => {
+                        let mut guard = self.media_list_factory.guard();
+                        guard.push_back(media);
+                    }
+                    Err(error) => tracing::error!("{}: {}", fl!("generic-error"), error),
+                }
+            }
+        }
+    }
 }
 
 impl CsamModel {
@@ -275,7 +316,39 @@ impl CsamModel {
         path: PathBuf,
         sender: &AsyncComponentSender<CsamModel>,
     ) {
-        
+        let (tx, mut rx) = relm4::tokio::sync::mpsc::channel(100);
+
+        sender.command(|out, shutdown| {
+            shutdown.register(async move {
+                while let Some(state) = rx.recv().await {
+                    match state {
+                        StateMedia::Completed => {
+                            out.send(CsamCommandOutput::SearchCompleted)
+                                .unwrap_or_default();
+                        }
+                        StateMedia::Found(count) => {
+                            out.send(CsamCommandOutput::MediaFound(count))
+                                .unwrap_or_default();
+                        }
+                        StateMedia::Ok(media) => {
+                            let media = models::Media::from(&media);
+                            out.send(CsamCommandOutput::AddMedia(Ok(media)))
+                                .unwrap_or_default();
+                        }
+                        StateMedia::Err(error) => {
+                            out.send(CsamCommandOutput::AddMedia(Err(error)))
+                                .unwrap_or_default();
+                        }
+                    }
+                }
+            })
+            .drop_on_shutdown()
+        });
+
+        match self.service.search(path, tx).await {
+            Err(error) => tracing::error!("{error}"),
+            _ => (),
+        }
     }
 
     async fn on_select_all_medias(
