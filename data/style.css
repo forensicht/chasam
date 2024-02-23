@@ -30,7 +30,8 @@ tabbar > revealer > box {
 
 .media-item-box {
     margin: 0;
-    padding: 0;
+    padding: 2px;
+    border-radius: 5px;
 }
 
 .border-spacing {

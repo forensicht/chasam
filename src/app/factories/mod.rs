@@ -1,2 +1,2 @@
 pub mod sidebar_option;
-pub mod media;
+pub mod media_item;

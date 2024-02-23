@@ -9,11 +9,7 @@ use crate::app::{
         SearchBarModel,
         SearchBarOutput,
     },
-    factories::media::{
-        MediaInput, 
-        MediaModel, 
-        MediaOutput
-    },
+    factories::media_item::MediaItem,
 };
 use toolbar::{
     ToolbarModel,
@@ -21,24 +17,33 @@ use toolbar::{
     ToolbarOutput,
 };
 
+use crate::app::typed_view::grid::TypedGridView;
+
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use relm4::{
-    adw, component::{
+    prelude::*,
+    gtk::prelude::*,
+    adw, 
+    binding::Binding, 
+    component::{
         AsyncComponent, 
         AsyncComponentController, 
         AsyncComponentParts, 
         AsyncComponentSender, 
         AsyncController,
-    }, factory::AsyncFactoryVecDeque, gtk::prelude::*, prelude::*, RelmIterChildrenExt
+    },  
+    // typed_view::grid::TypedGridView,
 };
 use anyhow::Result;
 
 pub struct CsamModel {
     searchbar: AsyncController<SearchBarModel>,
     toolbar: AsyncController<ToolbarModel>,
-    media_list_factory: AsyncFactoryVecDeque<MediaModel>,
-    media_list_filter: models::MediaFilter,
+    media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection>,
+    media_list_filter: Rc<RefCell<models::MediaFilter>>,
     thumbnail_size: i32,
     service: service::csam::SearchMedia,
 }
@@ -47,14 +52,14 @@ impl CsamModel {
     pub fn new(
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
-        media_list_factory: AsyncFactoryVecDeque<MediaModel>,
+        media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection>,
         service: service::csam::SearchMedia,
     ) -> Self {
         Self {
             searchbar,
             toolbar,
-            media_list_factory,
-            media_list_filter: models::MediaFilter::default(),
+            media_list_wrapper,
+            media_list_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
             thumbnail_size: models::media::THUMBNAIL_SIZE,
             service,
         }
@@ -78,7 +83,7 @@ pub enum CsamInput {
     SizeFilterA500KB(bool),
     SearchEntry(String),
 
-    MediaListSelect(usize),
+    MediaListSelect(u32),
     SelectedMedia(bool),
     Notify(String, u32),
 }
@@ -152,14 +157,13 @@ impl AsyncComponent for CsamModel {
                                     set_vexpand: true,
 
                                     #[local_ref]
-                                    media_list_widget -> gtk::FlowBox {
-                                        set_valign: gtk::Align::Start,
-                                        set_max_children_per_line: 12,
-                                        set_selection_mode: gtk::SelectionMode::None,
-                                        set_activate_on_single_click: true,
-                                        connect_child_activated[sender] => move |_, child| {
-                                            let index = child.index() as usize;
-                                            sender.input(CsamInput::MediaListSelect(index));
+                                    media_list_widget -> gtk::GridView {
+                                        set_vexpand: true,
+                                        set_single_click_activate: true,
+                                        set_enable_rubberband: false,
+                                        set_max_columns: 10,
+                                        connect_activate[sender] => move |_, position| {
+                                            sender.input(CsamInput::MediaListSelect(position));
                                         },
                                     },
                                 },
@@ -204,20 +208,22 @@ impl AsyncComponent for CsamModel {
                 ToolbarOutput::SizeFilterGreater500KB(is_active) => CsamInput::SizeFilterA500KB(is_active),
             });
 
-        let media_list_factory = AsyncFactoryVecDeque::builder()
-            .launch_default()
-            .forward(sender.input_sender(), |output| match output {
-                MediaOutput::Selected(is_selected) => CsamInput::SelectedMedia(is_selected),
-            });
+        let media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection> =
+            TypedGridView::new();
 
         let service = service::csam::SearchMedia::new();
-        let model = CsamModel::new(
+        let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
-            media_list_factory,
+            media_list_wrapper,
             service,
         );
-        let media_list_widget = model.media_list_factory.widget();
+
+        let filter = model.media_list_filter.clone();
+        model.media_list_wrapper.add_filter(on_filter(filter));
+        model.media_list_wrapper.set_filter_status(0, false);
+
+        let media_list_widget = &model.media_list_wrapper.view;
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -247,31 +253,34 @@ impl AsyncComponent for CsamModel {
                 self.on_select_all_medias(is_selected).await;
             }
             CsamInput::SearchEntry(query) => {
-                self.media_list_filter.search_entry = Some(query);
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().search_entry = Some(query);
+                self.apply_media_filters().await;
             }
             CsamInput::SizeFilter0KB(is_active) => {
-                self.media_list_filter.size_0 = is_active;
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().size_0 = is_active;
+                self.apply_media_filters().await;
             }
             CsamInput::SizeFilter30KB(is_active) => {
-                self.media_list_filter.size_30 = is_active;
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().size_30 = is_active;
+                self.apply_media_filters().await;
             }
             CsamInput::SizeFilter100KB(is_active) => {
-                self.media_list_filter.size_100 = is_active;
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().size_100 = is_active;
+                self.apply_media_filters().await;
             }
             CsamInput::SizeFilter500KB(is_active) => {
-                self.media_list_filter.size_500 = is_active;
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().size_500 = is_active;
+                self.apply_media_filters().await;
             }
             CsamInput::SizeFilterA500KB(is_active) => {
-                self.media_list_filter.size_greater_500 = is_active;
-                let _affected = self.apply_media_filters().await;
+                self.media_list_filter.borrow_mut().size_greater_500 = is_active;
+                self.apply_media_filters().await;
             }
-            CsamInput::MediaListSelect(index) => {
-                println!("Select item: {}", index);
+            CsamInput::MediaListSelect(position) => {
+                if let Some(item) = self.media_list_wrapper.get(position) {
+                    let media = &item.borrow().media;
+                    println!("Select item: {}", media.name);
+                }
             }
             CsamInput::SelectedMedia(is_selected) => {
                 self.toolbar.emit(ToolbarInput::SelectedItem(is_selected));
@@ -300,8 +309,7 @@ impl AsyncComponent for CsamModel {
             CsamCommandOutput::AddMedia(result) => {
                 match result {
                     Ok(media) => {
-                        let mut guard = self.media_list_factory.guard();
-                        guard.push_back(media);
+                        self.media_list_wrapper.append(MediaItem::new(media));
                     }
                     Err(error) => tracing::error!("{}: {}", fl!("generic-error"), error),
                 }
@@ -355,51 +363,18 @@ impl CsamModel {
         &mut self,
         is_selected: bool,
     ) {
-        self.media_list_factory
-            .guard()
-            .iter_mut()
-            .for_each(|item| {
-                item.unwrap().media.is_selected = is_selected;
-            });
+        let len = self.media_list_wrapper.len();
+        for position in 0..len {
+            let item = self.media_list_wrapper.get(position).unwrap();
+            let binding = &mut item.borrow_mut().active;
+            let mut guard = binding.guard();
+            *guard = is_selected;
+        }
     }
 
-    async fn apply_media_filters(&mut self) -> usize {
-        let media_widget = self.media_list_factory.widget();
-        let filter = &self.media_list_filter;
-
-        for media_model in self.media_list_factory.iter() {
-            let media_model = media_model.unwrap();
-            let media = &media_model.media;
-            let mut is_visible = true;
-
-            if let Some(query) = &filter.search_entry {
-                is_visible = media.name.to_lowercase().contains(&query.to_lowercase());
-            }
-
-            if !filter.size_0 && media.size == 0 {
-                is_visible = false;
-            } else if !filter.size_30 && (media.size > 0 && media.size <= 30) {
-                is_visible = false;
-            } else if !filter.size_100 && (media.size > 30 && media.size <= 100) {
-                is_visible = false;
-            } else if !filter.size_500 && (media.size > 100 && media.size <= 500) {
-                is_visible = false;
-            } else if !filter.size_greater_500 && media.size > 500 {
-                is_visible = false;
-            }
-
-            let index = media_model.index.current_index() as i32;
-            media_widget
-                .child_at_index(index)
-                .as_ref()
-                .unwrap()
-                .set_visible(is_visible);
-        }
-
-        media_widget
-            .iter_children()
-            .filter(|c| c.is_visible())
-            .count()
+    async fn apply_media_filters(&mut self) {
+        self.media_list_wrapper.set_filter_status(0, false);
+        self.media_list_wrapper.set_filter_status(0, true);
     }
 
     async fn apply_media_zoom(&mut self, is_zoom_in: bool) {
@@ -420,13 +395,38 @@ impl CsamModel {
             }
         }
 
-        for media_model in self.media_list_factory.iter() {
-            let index = media_model.unwrap().index.current_index();
-            if is_zoom_in {
-                self.media_list_factory.send(index, MediaInput::ZoomIn(self.thumbnail_size));
-            } else {
-                self.media_list_factory.send(index, MediaInput::ZoomOut(self.thumbnail_size));
-            }
+        let len = self.media_list_wrapper.len();
+        for position in 0..len {
+            let item = self.media_list_wrapper.get(position).unwrap();
+            let binding = &mut item.borrow_mut().thumbnail_size;
+            let mut guard = binding.guard();
+            *guard = self.thumbnail_size;
         }
+    }
+}
+
+fn on_filter(filter: Rc<RefCell<models::MediaFilter>>) -> impl Fn(&MediaItem) -> bool {
+    move |item: &MediaItem| -> bool {
+        let filter = filter.borrow();
+        let media = &item.media;
+        let mut is_visible = true;
+
+        if let Some(query) = &filter.search_entry {
+            is_visible = media.name.to_lowercase().contains(&query.to_lowercase());  
+        }
+
+        if !filter.size_0 && media.size == 0 {
+            is_visible = false;
+        } else if !filter.size_30 && (media.size > 0 && media.size <= 30) {
+            is_visible = false;
+        } else if !filter.size_100 && (media.size > 30 && media.size <= 100) {
+            is_visible = false;
+        } else if !filter.size_500 && (media.size > 100 && media.size <= 500) {
+            is_visible = false;
+        } else if !filter.size_greater_500 && media.size > 500 {
+            is_visible = false;
+        }
+
+        is_visible
     }
 }

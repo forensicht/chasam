@@ -2,6 +2,7 @@ pub mod config;
 pub mod models;
 pub mod components;
 pub mod factories;
+pub mod typed_view;
 
 use crate::fl;
 use crate::app::components::{
