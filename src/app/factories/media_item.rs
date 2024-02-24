@@ -1,6 +1,8 @@
 use crate::app::models;
-
-use crate::app::typed_view::grid::RelmGridItem;
+use crate::app::components::csam::toolbar::{
+    SELECT_BROKER,
+    ToolbarInput,
+};
 
 use relm4::{
     binding::{BoolBinding, I32Binding}, 
@@ -9,7 +11,7 @@ use relm4::{
         prelude::*,
     }, 
     prelude::*, 
-    // typed_view::grid::RelmGridItem, 
+    typed_view::grid::RelmGridItem, 
     RelmObjectExt,
 };
 
@@ -31,7 +33,6 @@ impl MediaItem {
 }
 
 pub struct Widgets {
-    overlay: gtk::Overlay,
     picture: gtk::Picture,
     checkbox: gtk::CheckButton,
     label: gtk::Label,
@@ -51,42 +52,46 @@ impl RelmGridItem for MediaItem {
         relm4::view! {
             root = gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
-                set_css_classes: &["card", "media-item-box", "border-spacing"],
+                set_css_classes: &["card", "activatable", "media-item-box", "border-spacing"],
     
-                #[name(overlay)]
-                gtk::Overlay {
+                #[name(picture)]
+                gtk::Picture {
                     set_size_request: (models::media::THUMBNAIL_SIZE, models::media::THUMBNAIL_SIZE),
-    
-                    #[name(picture)]
-                    add_overlay = &gtk::Picture {
-                        set_margin_all: 3,
-                        set_content_fit: gtk::ContentFit::Contain,
-                        set_can_shrink: true,
-                        set_halign: gtk::Align::Center,
-                        set_valign: gtk::Align::Center,
-                    },
-    
+                    set_margin_all: 3,
+                    set_content_fit: gtk::ContentFit::Contain,
+                    set_can_shrink: true,
+                    set_halign: gtk::Align::Center,
+                    set_valign: gtk::Align::Center,
+                },            
+
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Horizontal,
+
                     #[name(checkbox)]
-                    add_overlay = &gtk::CheckButton {
+                    gtk::CheckButton {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         set_css_classes: &["border-spacing"],
+                        #[block_signal(toggle_handler)]
+                        set_active: false,
+                        connect_toggled => move |checkbox| {
+                            SELECT_BROKER.send(ToolbarInput::SelectedItem(checkbox.is_active()));
+                        } @toggle_handler,
                     },
+
+                    #[name(label)]
+                    gtk::Label {
+                        set_margin_start: 5,
+                        set_hexpand: true,
+                        set_halign: gtk::Align::Start,
+                        set_max_width_chars: 20,
+                        set_ellipsize: pango::EllipsizeMode::End,
+                    }
                 },
-    
-                #[name(label)]
-                gtk::Label {
-                    set_margin_all: 2,
-                    set_hexpand: true,
-                    set_halign: gtk::Align::Fill,
-                    set_max_width_chars: 25,
-                    set_ellipsize: pango::EllipsizeMode::End,
-                }
             }
         }
 
         let widgets = Widgets {
-            overlay,
             picture,
             checkbox,
             label,
@@ -97,16 +102,14 @@ impl RelmGridItem for MediaItem {
 
     fn bind(&mut self, widgets: &mut Self::Widgets, root: &mut Self::Root) {
         let Widgets { 
-            overlay, 
             picture, 
             checkbox, 
             label,
         } = widgets;
 
         root.set_tooltip(self.media.name.as_str());
-        overlay.set_size_request(self.media.thumbnail_size, self.media.thumbnail_size);
-        overlay.add_write_only_binding(&self.thumbnail_size, "height-request");
-        overlay.add_write_only_binding(&self.thumbnail_size, "width-request");
+        picture.add_write_only_binding(&self.thumbnail_size, "height-request");
+        picture.add_write_only_binding(&self.thumbnail_size, "width-request");
         picture.set_filename(Some(self.media.thumb_path.as_str()));
         checkbox.add_binding(&self.active, "active");
         label.set_label(self.media.name.as_str());

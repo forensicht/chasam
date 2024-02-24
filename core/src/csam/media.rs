@@ -12,7 +12,7 @@ pub fn get_thumb_path() -> Result<PathBuf> {
     //     .context("could not get current dir")?
     //     .join("thumbnails");
 
-    let path = PathBuf::new().join("D:\\thumbnails");
+    let path = PathBuf::new().join("C:\\thumbnails");
     Ok(path)
 }
 
@@ -58,26 +58,26 @@ impl Media {
         let md5_hash = utils::media::get_file_hash_md5(&media_path).unwrap_or_default();
 
         // make thumbnail
-        let mut thumb_path = media_path.clone();
+        let thumb_path = media_path.clone();
 
-        if media_type == "image" {
-            let media_path_hash = utils::media::get_path_hash(&media_path).unwrap();
-            let mut thumb_path_buf = get_thumb_path()?.join(&media_path_hash);
-            thumb_path_buf.set_extension("jpeg");
+        // if media_type == "image" {
+        //     let media_path_hash = utils::media::get_path_hash(&media_path).unwrap();
+        //     let mut thumb_path_buf = get_thumb_path()?.join(&media_path_hash);
+        //     thumb_path_buf.set_extension("jpeg");
 
-            if thumb_path_buf.exists() {
-                thumb_path = thumb_path_buf.display().to_string();
-            } else {
-                match utils::media::make_thumbnail(entry.path(), &thumb_path_buf, THUMBNAIL_SIZE) {
-                    Ok(result) => if result {
-                        thumb_path = thumb_path_buf.display().to_string();
-                    }
-                    Err(err) => {
-                        eprintln!("[ERROR] {} : {}", media_path.as_str(), err);
-                    }
-                }
-            }
-        }
+        //     if thumb_path_buf.exists() {
+        //         thumb_path = thumb_path_buf.display().to_string();
+        //     } else {
+        //         match utils::media::make_thumbnail(entry.path(), &thumb_path_buf, THUMBNAIL_SIZE) {
+        //             Ok(result) => if result {
+        //                 thumb_path = thumb_path_buf.display().to_string();
+        //             }
+        //             Err(err) => {
+        //                 eprintln!("[ERROR] {} : {}", media_path.as_str(), err);
+        //             }
+        //         }
+        //     }
+        // }
 
         // perceptual hash of the file
         let phash = if media_size > 0 {

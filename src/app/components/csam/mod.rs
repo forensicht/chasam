@@ -1,4 +1,4 @@
-mod toolbar;
+pub mod toolbar;
 
 use crate::fl;
 use core_chasam as service;
@@ -13,11 +13,8 @@ use crate::app::{
 };
 use toolbar::{
     ToolbarModel,
-    ToolbarInput,
     ToolbarOutput,
 };
-
-use crate::app::typed_view::grid::TypedGridView;
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -34,15 +31,15 @@ use relm4::{
         AsyncComponentParts, 
         AsyncComponentSender, 
         AsyncController,
-    },  
-    // typed_view::grid::TypedGridView,
+    },
+    typed_view::grid::TypedGridView,
 };
 use anyhow::Result;
 
 pub struct CsamModel {
     searchbar: AsyncController<SearchBarModel>,
     toolbar: AsyncController<ToolbarModel>,
-    media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection>,
+    media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
     media_list_filter: Rc<RefCell<models::MediaFilter>>,
     thumbnail_size: i32,
     service: service::csam::SearchMedia,
@@ -52,7 +49,7 @@ impl CsamModel {
     pub fn new(
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
-        media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection>,
+        media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
         service: service::csam::SearchMedia,
     ) -> Self {
         Self {
@@ -84,7 +81,6 @@ pub enum CsamInput {
     SearchEntry(String),
 
     MediaListSelect(u32),
-    SelectedMedia(bool),
     Notify(String, u32),
 }
 
@@ -195,7 +191,7 @@ impl AsyncComponent for CsamModel {
             });
 
         let toolbar_controller = ToolbarModel::builder()
-            .launch(())
+            .launch_with_broker((), &toolbar::SELECT_BROKER)
             .forward(sender.input_sender(), |output| match output {
                 ToolbarOutput::ZoomIn => CsamInput::ZoomIn,
                 ToolbarOutput::ZoomOut => CsamInput::ZoomOut,
@@ -208,7 +204,7 @@ impl AsyncComponent for CsamModel {
                 ToolbarOutput::SizeFilterGreater500KB(is_active) => CsamInput::SizeFilterA500KB(is_active),
             });
 
-        let media_list_wrapper: TypedGridView<MediaItem, gtk::SingleSelection> =
+        let media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection> =
             TypedGridView::new();
 
         let service = service::csam::SearchMedia::new();
@@ -244,6 +240,7 @@ impl AsyncComponent for CsamModel {
                 self.apply_media_zoom(false).await;
             }
             CsamInput::StartSearch(path) => {
+                self.media_list_wrapper.clear();
                 self.on_search(path, &sender).await;
             }
             CsamInput::SearchCompleted(count) => {
@@ -281,9 +278,6 @@ impl AsyncComponent for CsamModel {
                     let media = &item.borrow().media;
                     println!("Select item: {}", media.name);
                 }
-            }
-            CsamInput::SelectedMedia(is_selected) => {
-                self.toolbar.emit(ToolbarInput::SelectedItem(is_selected));
             }
             CsamInput::Notify(msg, timeout) => {
                 println!("{} - {}", msg, timeout);
@@ -363,8 +357,8 @@ impl CsamModel {
         &mut self,
         is_selected: bool,
     ) {
-        let len = self.media_list_wrapper.len();
-        for position in 0..len {
+        // let len = self.media_list_wrapper.len();
+        for position in 0..160 {
             let item = self.media_list_wrapper.get(position).unwrap();
             let binding = &mut item.borrow_mut().active;
             let mut guard = binding.guard();

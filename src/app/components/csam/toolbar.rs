@@ -8,11 +8,14 @@ use relm4::{
         AsyncComponentParts, 
         AsyncComponentSender,
     },
+    MessageBroker,
 };
 use relm4_icons::icon_name;
 
+pub static SELECT_BROKER: MessageBroker<ToolbarInput> = MessageBroker::new();
+
 pub struct ToolbarModel {
-    selected_count: usize,
+    selection_count: usize,
 }
 
 #[derive(Debug)]
@@ -93,7 +96,7 @@ impl AsyncComponent for ToolbarModel {
 
                 gtk::Label {
                     #[watch]
-                    set_label: &model.selected_count.to_string(),
+                    set_label: &model.selection_count.to_string(),
                     set_xalign: 0.0,
                     add_css_class: "dim-label",
                     set_margin_start: 4,
@@ -341,7 +344,7 @@ impl AsyncComponent for ToolbarModel {
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
         let model = ToolbarModel {
-            selected_count: 0,
+            selection_count: 0,
         };
         let widgets = view_output!();
 
@@ -371,11 +374,11 @@ impl AsyncComponent for ToolbarModel {
             }
             ToolbarInput::SelectedItem(is_selected) => {
                 if is_selected {
-                    self.selected_count += 1;
-                } else if self.selected_count > 0 {
-                    self.selected_count -= 1;
+                    self.selection_count += 1;
+                } else if self.selection_count > 0 {
+                    self.selection_count -= 1;
                 } else {
-                    self.selected_count = 0;
+                    self.selection_count = 0;
                 }
             }
             ToolbarInput::CheckButtonToggled(size_option, is_selected) => {
