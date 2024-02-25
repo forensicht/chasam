@@ -3,16 +3,15 @@ use super::media::Media;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{self, Sender, Receiver};
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
-use anyhow::Result;
 
 #[derive(Debug)]
 pub enum StateMedia {
     Completed,
     Found(usize),
-    Ok(Media),
+    Ok(Vec<Media>),
     Err(anyhow::Error),
 }
 
@@ -27,15 +26,21 @@ impl SearchMedia {
         }
     }
 
-    pub async fn search(
+    pub fn search(
         &self,
         dir: PathBuf,
         state_sender: Sender<StateMedia>,
-    ) -> Result<()> {
+    ) {
+        *self.stopped.write().unwrap() = false;
         let stopped = self.stopped.clone();
         let state_sender = state_sender.clone();
 
-        tokio::task::spawn_blocking(move || {
+        std::thread::spawn(move || {
+            let (media_sender, media_receiver) = mpsc::channel::<Media>(1000);
+
+            // Asyncronous function responsible for notifying the search result.
+            Self::notify_result(media_receiver, state_sender.clone());
+
             let mut found_files: usize = 0;
             let thread_pool = ThreadPool::new(num_cpus::get());
 
@@ -53,6 +58,7 @@ impl SearchMedia {
 
                 let entry = entry.clone();
                 let c_stopped = stopped.clone();
+                let c_media_sender = media_sender.clone();
                 let c_state_sender = state_sender.clone();
 
                 thread_pool.execute(move || {
@@ -62,8 +68,8 @@ impl SearchMedia {
 
                     match Media::new(entry) {
                         Ok(media) => {
-                            c_state_sender.blocking_send(StateMedia::Ok(media))
-                                .expect("could not send `StateMedia::Ok`");
+                            c_media_sender.blocking_send(media)
+                                .expect("could not send `Media`");
                         }
                         Err(error) => {
                             c_state_sender.blocking_send(StateMedia::Err(error))
@@ -82,14 +88,46 @@ impl SearchMedia {
             state_sender.blocking_send(StateMedia::Completed)
                 .expect("could not send `StateMedia::Completed`");
 
+            drop(media_sender);
             drop(state_sender);
-
-            Ok(())
-        }).await?
+        });
     }
 
     pub fn stop(&self) {
         *self.stopped.write().unwrap() = true;
+    }
+
+    // Asyncronous function responsible for notifying the search result.
+    fn notify_result(
+        mut media_receiver: Receiver<Media>, 
+        state_sender: Sender<StateMedia>,
+    ) {
+        std::thread::spawn(move || {
+            let mut count = 0;
+            let mut vec_medias: Vec<Media> = vec![];
+            vec_medias.reserve(100);
+
+
+            while let Some(media) = media_receiver.blocking_recv() {
+                vec_medias.push(media);
+
+                if count < 100 {
+                    count += 1;
+                } else {
+                    state_sender.blocking_send(StateMedia::Ok(vec_medias.clone()))
+                        .expect("could not send `StateMedia::Ok`");
+                    vec_medias.clear();
+                    count = 0;
+                }
+            }
+
+            if count > 0 {
+                state_sender.blocking_send(StateMedia::Ok(vec_medias.clone()))
+                    .expect("could not send `StateMedia::Ok`");
+            }
+
+            // drop(state_sender);
+        });
     }
 
     fn is_media(entry: &Path) -> bool {

@@ -38,7 +38,7 @@ impl From<&core::csam::Media> for Media {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MediaFilter {
     pub search_entry: Option<String>,
     pub size_0: bool,

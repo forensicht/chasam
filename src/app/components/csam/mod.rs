@@ -7,6 +7,7 @@ use crate::app::{
     models,
     components::searchbar::{
         SearchBarModel,
+        SearchBarInput,
         SearchBarOutput,
     },
     factories::media_item::MediaItem,
@@ -67,7 +68,7 @@ impl CsamModel {
 pub enum CsamInput {
     // Searchbar
     StartSearch(PathBuf),
-    SearchCompleted(usize),
+    StopSearch,
 
     // Toolbar
     ZoomIn,
@@ -87,7 +88,7 @@ pub enum CsamInput {
 #[derive(Debug)]
 pub enum CsamCommandOutput {
     SearchCompleted,
-    AddMedia(Result<models::Media>),
+    AddMedia(Result<Vec<models::Media>>),
     MediaFound(usize),
 }
 
@@ -187,6 +188,7 @@ impl AsyncComponent for CsamModel {
             .launch(())
             .forward(sender.input_sender(), |output| match output {
                 SearchBarOutput::StartSearch(path) => CsamInput::StartSearch(path),
+                SearchBarOutput::StopSearch => CsamInput::StopSearch,
                 SearchBarOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
             });
 
@@ -243,8 +245,8 @@ impl AsyncComponent for CsamModel {
                 self.media_list_wrapper.clear();
                 self.on_search(path, &sender).await;
             }
-            CsamInput::SearchCompleted(count) => {
-                println!("{}", count);
+            CsamInput::StopSearch => {
+                self.service.stop();
             }
             CsamInput::SelectAllMedias(is_selected) => {
                 self.on_select_all_medias(is_selected).await;
@@ -296,14 +298,19 @@ impl AsyncComponent for CsamModel {
         match message {
             CsamCommandOutput::SearchCompleted => {
                 println!("Search Completed");
+                self.searchbar.emit(SearchBarInput::SearchCompleted);
             }
             CsamCommandOutput::MediaFound(count) => {
                 println!("Media Found: {}", count);
             }
             CsamCommandOutput::AddMedia(result) => {
                 match result {
-                    Ok(media) => {
-                        self.media_list_wrapper.append(MediaItem::new(media));
+                    Ok(medias) => {
+                        let media_items = medias
+                            .into_iter()
+                            .map(|media| MediaItem::new(media))
+                            .collect::<Vec<MediaItem>>();
+                        self.media_list_wrapper.extend_from_iter(media_items);
                     }
                     Err(error) => tracing::error!("{}: {}", fl!("generic-error"), error),
                 }
@@ -332,9 +339,13 @@ impl CsamModel {
                             out.send(CsamCommandOutput::MediaFound(count))
                                 .unwrap_or_default();
                         }
-                        StateMedia::Ok(media) => {
-                            let media = models::Media::from(&media);
-                            out.send(CsamCommandOutput::AddMedia(Ok(media)))
+                        StateMedia::Ok(medias) => {
+                            let vec_medias = medias
+                                .iter()
+                                .map(|media| models::Media::from(media))
+                                .collect();
+
+                            out.send(CsamCommandOutput::AddMedia(Ok(vec_medias)))
                                 .unwrap_or_default();
                         }
                         StateMedia::Err(error) => {
@@ -347,18 +358,16 @@ impl CsamModel {
             .drop_on_shutdown()
         });
 
-        match self.service.search(path, tx).await {
-            Err(error) => tracing::error!("{error}"),
-            _ => (),
-        }
+        self.service.search(path, tx);
+
+        println!("Search OK");
     }
 
     async fn on_select_all_medias(
         &mut self,
         is_selected: bool,
     ) {
-        // let len = self.media_list_wrapper.len();
-        for position in 0..160 {
+        for position in 0..self.media_list_wrapper.len() {
             let item = self.media_list_wrapper.get(position).unwrap();
             let binding = &mut item.borrow_mut().active;
             let mut guard = binding.guard();

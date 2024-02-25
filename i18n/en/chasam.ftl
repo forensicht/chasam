@@ -41,6 +41,7 @@ comments = Application that searches CSAM content in images and videos.
 
 # Searchbar
 search = Search
+stop = Stop
 directory = Directory
 select-directory = Select directory
 

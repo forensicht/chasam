@@ -42,6 +42,7 @@ comments = Aplicación que busca contenido CSAM en imágenes y videos.
 
 # Searchbar
 search = Buscar
+stop = Detener
 directory = Directorio
 select-directory = Seleccionar directorio
 

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::app::components::searchbar::{
     SearchBarModel,
+    SearchBarInput,
     SearchBarOutput,
 };
 
@@ -35,6 +36,7 @@ impl FaceModel {
 #[derive(Debug)]
 pub enum FaceInput {
     StartSearch(PathBuf),
+    StopSearch,
     SearchCompleted(usize),
     Notify(String, u32),
 }
@@ -85,6 +87,7 @@ impl AsyncComponent for FaceModel {
             .launch(())
             .forward(sender.input_sender(), |output| match output {
                 SearchBarOutput::StartSearch(path) => FaceInput::StartSearch(path),
+                SearchBarOutput::StopSearch => FaceInput::StopSearch,
                 SearchBarOutput::Notify(msg, timeout) => FaceInput::Notify(msg, timeout),
             });
 
@@ -105,8 +108,12 @@ impl AsyncComponent for FaceModel {
             FaceInput::StartSearch(path) => {
                 println!("{}", path.display());
             }
+            FaceInput::StopSearch => {
+                println!("Stop Search");
+            }
             FaceInput::SearchCompleted(count) => {
                 println!("{}", count);
+                self.searchbar.emit(SearchBarInput::SearchCompleted);
             }
             FaceInput::Notify(msg, timeout) => {
                 println!("{} - {}", msg, timeout);

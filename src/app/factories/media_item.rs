@@ -72,11 +72,9 @@ impl RelmGridItem for MediaItem {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         set_css_classes: &["border-spacing"],
-                        #[block_signal(toggle_handler)]
-                        set_active: false,
                         connect_toggled => move |checkbox| {
                             SELECT_BROKER.send(ToolbarInput::SelectedItem(checkbox.is_active()));
-                        } @toggle_handler,
+                        },
                     },
 
                     #[name(label)]

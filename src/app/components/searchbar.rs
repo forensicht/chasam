@@ -24,6 +24,7 @@ pub struct SearchBarModel {
 #[derive(Debug)]
 pub enum SearchBarInput {
     StartSearch,
+    StopSearch,
     SearchCompleted,
     OpenFileRequest,
     OpenFileResponse(PathBuf),
@@ -33,6 +34,7 @@ pub enum SearchBarInput {
 #[derive(Debug)]
 pub enum SearchBarOutput {
     StartSearch(PathBuf),
+    StopSearch,
     Notify(String, u32),
 }
 
@@ -68,11 +70,20 @@ impl AsyncComponent for SearchBarModel {
 
             append = &gtk::Button {
                 #[watch]
-                set_sensitive: model.stopped,
+                set_visible: model.stopped,
                 set_icon_name: icon_name::LOUPE_LARGE,
                 set_tooltip_text: Some(fl!("search")),
                 set_css_classes: &["suggested-action"],
                 connect_clicked => SearchBarInput::StartSearch,
+            },
+
+            append = &gtk::Button {
+                #[watch]
+                set_visible: !model.stopped,
+                set_icon_name: icon_name::STOP_LARGE,
+                set_tooltip_text: Some(fl!("stop")),
+                set_css_classes: &["destructive-action"],
+                connect_clicked => SearchBarInput::StopSearch,
             },
         }
     }
@@ -126,6 +137,9 @@ impl AsyncComponent for SearchBarModel {
                     let msg = fl!("invalid-directory").to_string();
                     sender.output(SearchBarOutput::Notify(msg, 3)).unwrap_or_default();
                 }
+            }
+            SearchBarInput::StopSearch => {
+                sender.output(SearchBarOutput::StopSearch).unwrap_or_default();
             }
             SearchBarInput::SearchCompleted => {
                 self.stopped = true;

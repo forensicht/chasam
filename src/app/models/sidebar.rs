@@ -16,6 +16,7 @@ impl SidebarOption {
         list
     }
 
+    #[allow(unused)]
     pub fn name(&self) -> String {
         let csam: &String = fl!("csam");
         let face: &String = fl!("face-search");
