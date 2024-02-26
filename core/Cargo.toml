@@ -3,7 +3,8 @@ name = "core_chasam"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.test]
+opt-level = 3
 
 [dependencies]
 anyhow = "1.0.75"
@@ -17,6 +18,7 @@ chrono = "0.4.24"
 sha-1 = "0.10.1"
 md5 = "0.7.0"
 hex = "0.4.3"
+tracing = "0.1.39"
 
 [dependencies.rust-embed]
 version = "8.2.0"

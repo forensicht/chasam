@@ -1,10 +1,15 @@
-use image::{imageops::FilterType, Luma};
+use image::{
+    imageops::FilterType, 
+    Luma, 
+    DynamicImage,
+};
 use std::path::Path;
+use anyhow::Result;
 
 type PixelMatrix = Vec<Vec<Luma<u8>>>;
 
 #[allow(unused)]
-pub fn difference_hash<P>(path: P) -> Result<u64, image::ImageError>
+pub fn difference_hash<P>(path: P) -> Result<u64>
 where
     P: AsRef<Path>,
 {
@@ -36,7 +41,34 @@ where
 }
 
 #[allow(unused)]
-pub fn average_hash<P>(path: P) -> Result<u64, image::ImageError>
+pub fn difference_hash_raw(
+    img: DynamicImage, 
+    buf: &[u8],
+) -> Result<u64> { 
+    let (w, h) = (9, 8);
+    let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
+    let img_buf = img_resized.to_luma8();
+    let pixel_matrix = image_to_pixel_matrix(&img_buf);
+    let mut idx: u64 = 0;
+    let mut hash: u64 = 0;
+
+    let (w, h) = (w as usize, h as usize);
+
+    for y in 0..h {
+        for x in 0..w - 1 {
+            if pixel_matrix[y][x].0 > pixel_matrix[y][x + 1].0 {
+                hash |= 1 << (64 - idx - 1) as u32;
+            }
+            idx += 1;
+        }
+    }
+
+    return Ok(hash);
+    
+}
+
+#[allow(unused)]
+pub fn average_hash<P>(path: P) -> Result<u64>
 where
     P: AsRef<Path>,
 {
@@ -137,6 +169,23 @@ mod tests {
         };
 
         assert!(true, "Distance: {}", distance(l_hash, r_hash));
+    }
+
+    #[test]
+    fn test_difference_hash_raw() {
+        use crate::utils::media;
+        let media_path = Path::new("D:/images_test/horse.jpg");
+        let thumb_size = 240;
+
+        match media::make_thumbnail_to_vec(media_path, thumb_size) {
+            Ok((img, buf)) => {
+                match difference_hash_raw(img, &buf) {
+                    Ok(hash) => assert_ne!(hash, 0),
+                    Err(err) => assert!(false, "{err}"),
+                }
+            }
+            Err(err) => assert!(false, "{err}"),
+        }
     }
 
     #[test]

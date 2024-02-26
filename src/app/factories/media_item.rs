@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::app::models;
 use crate::app::components::csam::toolbar::{
     SELECT_BROKER,
@@ -5,10 +7,15 @@ use crate::app::components::csam::toolbar::{
 };
 
 use relm4::{
-    binding::{BoolBinding, I32Binding}, 
+    binding::{
+        Binding, 
+        BoolBinding, 
+        I32Binding,
+    }, 
     gtk::{
         pango, 
         prelude::*,
+        gdk_pixbuf::Pixbuf,
     }, 
     prelude::*, 
     typed_view::grid::RelmGridItem, 
@@ -29,6 +36,11 @@ impl MediaItem {
             active: BoolBinding::new(false),
             thumbnail_size: I32Binding::new(models::media::THUMBNAIL_SIZE),
         }
+    }
+
+    pub fn set_active(&mut self, is_active: bool) {
+        self.media.is_selected = is_active;
+        *self.active.guard() = is_active;
     }
 }
 
@@ -106,10 +118,31 @@ impl RelmGridItem for MediaItem {
         } = widgets;
 
         root.set_tooltip(self.media.name.as_str());
-        picture.add_write_only_binding(&self.thumbnail_size, "height-request");
-        picture.add_write_only_binding(&self.thumbnail_size, "width-request");
-        picture.set_filename(Some(self.media.thumb_path.as_str()));
-        checkbox.add_binding(&self.active, "active");
+        // picture.add_write_only_binding(&self.thumbnail_size, "height-request");
+        // picture.add_write_only_binding(&self.thumbnail_size, "width-request");
+        // checkbox.add_binding(&self.active, "active");
         label.set_label(self.media.name.as_str());
+
+        if let Some(data) = self.media.data.as_ref() {
+            let pixbuf = Self::get_pixbuf(data);
+            picture.set_pixbuf(pixbuf.as_ref());
+        } else {
+            picture.set_filename(Some(self.media.path.as_str()));
+        }
+
+        // *self.active.guard() = self.media.is_selected;
+    }
+
+    fn unbind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
+        // *self.active.guard() = self.media.is_selected;
+        widgets.picture.set_pixbuf(None);
+    }
+}
+
+impl MediaItem {
+    fn get_pixbuf(data: &[u8]) -> Option<Pixbuf> {
+        let bytes: VecDeque<u8> = data.into_iter().cloned().collect();
+        let pixbuf = Pixbuf::from_read(bytes).ok()?;
+        Some(pixbuf)
     }
 }

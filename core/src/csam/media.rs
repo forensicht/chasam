@@ -1,26 +1,15 @@
 use crate::utils;
 
-use std::path::PathBuf;
 use chrono::Local;
 use walkdir::DirEntry;
 use anyhow::{Result, Context};
 
-pub const THUMBNAIL_SIZE: u32 = 320;
-
-pub fn get_thumb_path() -> Result<PathBuf> {
-    // let path = std::env::current_dir()
-    //     .context("could not get current dir")?
-    //     .join("thumbnails");
-
-    let path = PathBuf::new().join("C:\\thumbnails");
-    Ok(path)
-}
+pub const THUMBNAIL_SIZE: u32 = 240;
 
 #[derive(Debug, Clone)]
 pub struct Media {
     pub name: String,
     pub path: String,
-    pub thumb_path: String,
     pub media_type: String,
     pub size: usize,
     pub last_modified: i64,
@@ -28,6 +17,7 @@ pub struct Media {
     pub phash: u64,
     pub match_type: String,
     pub hamming: u32,
+    pub data: Option<Vec<u8>>,
 }
 
 impl Media {
@@ -58,31 +48,26 @@ impl Media {
         let md5_hash = utils::media::get_file_hash_md5(&media_path).unwrap_or_default();
 
         // make thumbnail
-        let thumb_path = media_path.clone();
-
-        // if media_type == "image" {
-        //     let media_path_hash = utils::media::get_path_hash(&media_path).unwrap();
-        //     let mut thumb_path_buf = get_thumb_path()?.join(&media_path_hash);
-        //     thumb_path_buf.set_extension("jpeg");
-
-        //     if thumb_path_buf.exists() {
-        //         thumb_path = thumb_path_buf.display().to_string();
-        //     } else {
-        //         match utils::media::make_thumbnail(entry.path(), &thumb_path_buf, THUMBNAIL_SIZE) {
-        //             Ok(result) => if result {
-        //                 thumb_path = thumb_path_buf.display().to_string();
-        //             }
-        //             Err(err) => {
-        //                 eprintln!("[ERROR] {} : {}", media_path.as_str(), err);
-        //             }
-        //         }
-        //     }
-        // }
+        let (dynamic_img, img_data) = if media_type == "image" {
+            match utils::media::make_thumbnail_to_vec(&media_path, THUMBNAIL_SIZE) {
+                Ok((img, buf)) => (Some(img), Some(buf)),
+                Err(err) => {
+                    tracing::error!("{} : {}", media_path.as_str(), err);
+                    (None, None)
+                }
+            }
+        } else {
+            (None, None)
+        };
 
         // perceptual hash of the file
         let phash = if media_size > 0 {
-            utils::media::get_file_perceptual_hash(&thumb_path)
-                .context("could not generate perceptual hash")?
+            if let Some(data) = img_data.as_ref() {
+                utils::media::get_image_perceptual_hash(dynamic_img.unwrap(), data)
+                    .context("could not generate perceptual hash")?
+            } else {
+                0
+            }
         } else {
             0
         };
@@ -90,7 +75,6 @@ impl Media {
         let media = Media {
             name: name,
             path: media_path,
-            thumb_path: thumb_path,
             media_type: media_type,
             size: media_size,
             last_modified: media_last_modified,
@@ -98,6 +82,7 @@ impl Media {
             phash: phash,
             match_type: String::new(),
             hamming: 0,
+            data: img_data,
         };
 
         Ok(media)

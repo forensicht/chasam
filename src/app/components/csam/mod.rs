@@ -365,13 +365,11 @@ impl CsamModel {
 
     async fn on_select_all_medias(
         &mut self,
-        is_selected: bool,
+        is_active: bool,
     ) {
         for position in 0..self.media_list_wrapper.len() {
             let item = self.media_list_wrapper.get(position).unwrap();
-            let binding = &mut item.borrow_mut().active;
-            let mut guard = binding.guard();
-            *guard = is_selected;
+            item.borrow_mut().set_active(is_active);
         }
     }
 
@@ -383,9 +381,10 @@ impl CsamModel {
     async fn apply_media_zoom(&mut self, is_zoom_in: bool) {
         use models::media::THUMBNAIL_SIZE;
         use models::media::ZOOM_SIZE;
+        use models::media::ZOOM_LIMIT;
 
         if is_zoom_in {
-            if self.thumbnail_size < 320 {
+            if self.thumbnail_size < ZOOM_LIMIT {
                 self.thumbnail_size += ZOOM_SIZE;
             }
         } else {

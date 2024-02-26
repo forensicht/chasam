@@ -1,7 +1,11 @@
-use anyhow::Result;
-use image::ImageError;
+use image::DynamicImage;
 use sha1::{Digest, Sha1};
-use std::{fs, io, path::Path};
+use std::{
+    fs, 
+    io::Cursor, 
+    path::Path,
+};
+use anyhow::Result;
 
 use super::phash;
 
@@ -37,7 +41,7 @@ where
 }
 
 #[allow(unused)]
-pub fn get_file_hash_sha1<P>(path: P) -> Result<String, io::Error>
+pub fn get_file_hash_sha1<P>(path: P) -> Result<String>
 where
     P: AsRef<Path>,
 {
@@ -51,7 +55,7 @@ where
 }
 
 #[allow(unused)]
-pub fn get_file_hash_md5<P>(path: P) -> Result<String, io::Error>
+pub fn get_file_hash_md5<P>(path: P) -> Result<String>
 where 
     P: AsRef<Path>,
 {
@@ -66,7 +70,7 @@ where
 
 
 #[allow(unused)]
-pub fn get_file_perceptual_hash<P>(path: P) -> Result<u64, image::ImageError>
+pub fn get_file_perceptual_hash<P>(path: P) -> Result<u64>
 where
     P: AsRef<Path>,
 {
@@ -78,11 +82,16 @@ where
 }
 
 #[allow(unused)]
+pub fn get_image_perceptual_hash(img: DynamicImage, data: &[u8]) -> Result<u64> {
+    phash::difference_hash_raw(img, data)
+}
+
+#[allow(unused)]
 pub fn make_thumbnail<PA, PB>(
     media_path: PA,
     thumb_path: PB,
     thumb_size: u32,
-) -> Result<bool, ImageError>
+) -> Result<bool>
 where
     PA: AsRef<Path>,
     PB: AsRef<Path>,
@@ -95,6 +104,27 @@ where
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+#[allow(unused)]
+pub fn make_thumbnail_to_vec<P>(
+    media_path: P, 
+    thumb_size: u32,
+) -> Result<(DynamicImage, Vec<u8>)>
+where
+    P: AsRef<Path>, 
+{   
+    let mut buf = Vec::new();
+    let img = image::open(media_path.as_ref())?;
+
+    if img.width() > thumb_size || img.height() > thumb_size {
+        let thumbnail = img.thumbnail(thumb_size, thumb_size);
+        thumbnail.write_to(&mut Cursor::new(&mut buf), image::ImageOutputFormat::Jpeg(50))?;
+        Ok((thumbnail, buf))
+    } else {
+        img.write_to(&mut Cursor::new(&mut buf), image::ImageOutputFormat::Jpeg(50))?;
+        Ok((img, buf))
     }
 }
 
@@ -139,6 +169,21 @@ mod tests {
         
         match make_thumbnail(media_path, thumb_path, thumb_size) {
             Ok(_) => assert!(true),
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
+
+    #[test]
+    fn test_make_thumbnail_to_vec() {
+        let media_path = Path::new("D:/images_test/horse.jpg");
+        let thumb_size = 240;
+
+        match make_thumbnail_to_vec(media_path, thumb_size) {
+            Ok((_, buf)) => {
+                let len = buf.len();
+                println!("image bytes: {}", len);
+                assert_ne!(len, 0);
+            }
             Err(err) => assert!(false, "{err}"),
         }
     }
