@@ -1,3 +1,4 @@
+pub mod media_details;
 pub mod toolbar;
 
 use crate::app::{
@@ -8,6 +9,7 @@ use crate::app::{
 use crate::fl;
 use core_chasam as service;
 use core_chasam::csam::StateMedia;
+use media_details::{MediaDetailsInput, MediaDetailsModel};
 use toolbar::{ToolbarModel, ToolbarOutput};
 
 use std::cell::RefCell;
@@ -20,7 +22,7 @@ use relm4::{
     binding::Binding,
     component::{
         AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncComponentSender,
-        AsyncController,
+        AsyncController, Controller,
     },
     gtk::prelude::*,
     prelude::*,
@@ -32,6 +34,7 @@ pub struct CsamModel {
     toolbar: AsyncController<ToolbarModel>,
     media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
     media_list_filter: Rc<RefCell<models::MediaFilter>>,
+    media_details: Controller<MediaDetailsModel>,
     thumbnail_size: i32,
     service: service::csam::SearchMedia,
 }
@@ -41,6 +44,7 @@ impl CsamModel {
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
         media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
+        media_details: Controller<MediaDetailsModel>,
         service: service::csam::SearchMedia,
     ) -> Self {
         Self {
@@ -48,6 +52,7 @@ impl CsamModel {
             toolbar,
             media_list_wrapper,
             media_list_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
+            media_details,
             thumbnail_size: models::media::THUMBNAIL_SIZE,
             service,
         }
@@ -134,7 +139,7 @@ impl AsyncComponent for CsamModel {
 
                             #[wrap(Some)]
                             set_start_child = &gtk::Frame {
-                                set_width_request: 800,
+                                set_width_request: 900,
                                 set_vexpand: true,
                                 set_margin_end: 6,
 
@@ -158,9 +163,11 @@ impl AsyncComponent for CsamModel {
 
                             #[wrap(Some)]
                             set_end_child = &gtk::Frame {
-                                set_width_request: 300,
+                                set_width_request: 320,
                                 set_vexpand: true,
                                 set_margin_start: 6,
+
+                                set_child = model.media_details.widget().downcast_ref::<gtk::Box>(),
                             },
                         },
                     },
@@ -201,11 +208,14 @@ impl AsyncComponent for CsamModel {
 
         let media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection> = TypedGridView::new();
 
+        let media_details_controller = MediaDetailsModel::builder().launch(()).detach();
+
         let service = service::csam::SearchMedia::new();
         let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
             media_list_wrapper,
+            media_details_controller,
             service,
         );
 
@@ -270,7 +280,9 @@ impl AsyncComponent for CsamModel {
             CsamInput::MediaListSelect(position) => {
                 if let Some(item) = self.media_list_wrapper.get(position) {
                     let media = &item.borrow().media;
-                    println!("Select item: {}", media.name);
+                    self.media_details.emit(MediaDetailsInput::ShowMedia(
+                        models::MediaDetail::from(media),
+                    ));
                 }
             }
             CsamInput::Notify(msg, timeout) => {

@@ -39,6 +39,35 @@ impl From<&core::csam::Media> for Media {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct MediaDetail {
+    pub name: String,
+    pub path: String,
+    pub media_type: String,
+    pub size: usize,
+    pub last_modified: i64,
+    pub hash: String,
+    pub phash: u64,
+    pub match_type: String,
+    pub hamming: u32,
+}
+
+impl From<&Media> for MediaDetail {
+    fn from(media: &Media) -> Self {
+        Self {
+            name: media.name.clone(),
+            path: media.path.clone(),
+            media_type: media.media_type.clone(),
+            size: media.size,
+            last_modified: media.last_modified,
+            hash: media.hash.clone(),
+            phash: media.phash,
+            match_type: media.match_type.clone(),
+            hamming: media.hamming,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MediaFilter {
     pub search_entry: Option<String>,

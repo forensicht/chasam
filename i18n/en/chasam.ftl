@@ -49,6 +49,18 @@ select-directory = Select directory
 open = Open
 cancel = Cancel
 
+# Media Details
+media-name = Name:
+media-path = Path:
+media-type = Type:
+media-size = Size:
+media-last-modified = Last modified:
+media-hash = Hash:
+media-phash = Perceptual hash:
+media-match-type = Match type:
+media-hamming-distance = Hamming distance:
+
 # Errors
 generic-error = An error ocurred:
 invalid-directory = Invalid directory!
+open-media-error = Failed to open media

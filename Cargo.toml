@@ -2,7 +2,10 @@
 name = "chasam"
 version = "0.1.0"
 edition = "2021"
-authors = ["Tiago Martins <tiago.tsmweb@gmail.com>", "Hericson dos Santos <hericson.cipol@gmail.com>"]
+authors = [
+    "Tiago Martins <tiago.tsmweb@gmail.com>",
+    "Hericson dos Santos <hericson.cipol@gmail.com>",
+]
 license = "MPL 2.0"
 description = "Application that searches CSAM content in images and videos."
 homepage = "https://github.com/forensicht/chasam"
@@ -29,13 +32,14 @@ anyhow = "1.0.75"
 num_cpus = "1.16.0"
 open = "5.0.1"
 toml = "0.8.8"
+chrono = "0.4.34"
 
 [dependencies.core_chasam]
 path = "core"
 
 [dependencies.tokio]
 version = "1.36"
-features = [ "time" ]
+features = ["time"]
 
 [dependencies.serde]
 version = "1.0"
@@ -82,7 +86,7 @@ features = [
     "file-manager",
     "stamp",
     "parent",
-    "harddisk"
+    "harddisk",
 ]
 
 [build-dependencies]
