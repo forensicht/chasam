@@ -1,7 +1,7 @@
 use crate::fl;
+use relm4_icons::icon_name;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use relm4_icons::icon_name;
 
 #[derive(Debug, Clone, Copy, EnumIter, PartialEq)]
 pub enum SidebarOption {

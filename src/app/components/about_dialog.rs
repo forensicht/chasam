@@ -1,5 +1,5 @@
-use crate::fl;
 use crate::app::config::info::{APP_NAME, VERSION};
+use crate::fl;
 
 use gtk::prelude::GtkWindowExt;
 use relm4::{adw, gtk, ComponentParts, ComponentSender, SimpleComponent};
@@ -30,11 +30,7 @@ impl SimpleComponent for AboutDialog {
         ComponentParts { model, widgets }
     }
 
-    fn update_view(
-        &self, 
-        widgets: &mut Self::Widgets, 
-        _sender: ComponentSender<Self>,
-    ) {
+    fn update_view(&self, widgets: &mut Self::Widgets, _sender: ComponentSender<Self>) {
         let dialog = adw::AboutWindow::builder()
             .icon_name(APP_NAME)
             .application_icon(APP_NAME)

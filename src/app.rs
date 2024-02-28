@@ -1,45 +1,26 @@
-pub mod config;
-pub mod models;
 pub mod components;
+pub mod config;
 pub mod factories;
+pub mod models;
 
-use crate::fl;
 use crate::app::components::{
     about_dialog::AboutDialog,
+    content::{ContentInput, ContentModel},
     preferences::PreferencesModel,
-    sidebar::{
-        SidebarModel,
-        SidebarOutput,
-    },
-    content::{
-        ContentModel,
-        ContentInput,
-    },
+    sidebar::{SidebarModel, SidebarOutput},
 };
+use crate::fl;
 
 use relm4::{
-    prelude::*,
-    gtk::prelude::*,
-    gtk::glib,
+    actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
-    component::{
-        AsyncComponent,
-        AsyncComponentParts,
-        AsyncController,
-        AsyncComponentController,
-    },
-    view,
-    AsyncComponentSender,
+    component::{AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController},
+    gtk::glib,
+    gtk::prelude::*,
     loading_widgets::LoadingWidgets,
-    actions::{
-        ActionGroupName,
-        RelmAction,
-        RelmActionGroup,
-    },
-    ComponentBuilder,
-    ComponentController,
-    Controller,
     main_adw_application,
+    prelude::*,
+    view, AsyncComponentSender, ComponentBuilder, ComponentController, Controller,
 };
 use relm4_icons::icon_name;
 
@@ -116,26 +97,26 @@ impl AsyncComponent for App {
 
                     gtk::CenterBox {
                         set_visible: true,
-						set_margin_top: 6,
-						set_margin_bottom: 6,
+                        set_margin_top: 6,
+                        set_margin_bottom: 6,
 
-						#[wrap(Some)]
-						set_center_widget = &gtk::Box {
-							set_orientation: gtk::Orientation::Vertical,
+                        #[wrap(Some)]
+                        set_center_widget = &gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
 
-							gtk::MenuButton {
-								set_valign: gtk::Align::Center,
-								set_css_classes: &["flat"],
-								set_icon_name: icon_name::MENU,
+                            gtk::MenuButton {
+                                set_valign: gtk::Align::Center,
+                                set_css_classes: &["flat"],
+                                set_icon_name: icon_name::MENU,
                                 set_tooltip: fl!("menu"),
-								set_menu_model: Some(&primary_menu),
-							},
-						},
+                                set_menu_model: Some(&primary_menu),
+                            },
+                        },
                     },
 
                     append: model.sidebar.widget(),
                 },
-               
+
                 append: model.content.widget(),
             }
         }
@@ -199,22 +180,16 @@ impl AsyncComponent for App {
 
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
 
-        let sidebar_controller = SidebarModel::builder()
-            .launch(())
-            .forward(sender.input_sender(), |output| match output {
+        let sidebar_controller = SidebarModel::builder().launch(()).forward(
+            sender.input_sender(),
+            |output| match output {
                 SidebarOutput::SelectedOption(option) => AppInput::SelectedSidebarOption(option),
-            });
-
-        let content_controller = ContentModel::builder()
-            .launch(())
-            .detach();
-
-        let mut model = App::new(
-            sidebar_controller,
-            content_controller,
-            None, 
-            None,
+            },
         );
+
+        let content_controller = ContentModel::builder().launch(()).detach();
+
+        let mut model = App::new(sidebar_controller, content_controller, None, None);
 
         let widgets = view_output!();
 
@@ -247,7 +222,10 @@ impl AsyncComponent for App {
         let quit_action = {
             let sender = sender.clone();
             RelmAction::<QuitAction>::new_stateless(move |_| {
-                sender.input_sender().send(AppInput::Quit).unwrap_or_default();
+                sender
+                    .input_sender()
+                    .send(AppInput::Quit)
+                    .unwrap_or_default();
             })
         };
 
@@ -255,10 +233,9 @@ impl AsyncComponent for App {
         actions.add_action(about_action);
         actions.add_action(quit_action);
 
-        widgets.main_window.insert_action_group(
-            WindowActionGroup::NAME,
-            Some(&actions.into_action_group()),
-        );
+        widgets
+            .main_window
+            .insert_action_group(WindowActionGroup::NAME, Some(&actions.into_action_group()));
 
         AsyncComponentParts { model, widgets }
     }
@@ -272,7 +249,8 @@ impl AsyncComponent for App {
     ) {
         match message {
             AppInput::SelectedSidebarOption(sidebar_option) => {
-                self.content.emit(ContentInput::SelectSidebarOption(sidebar_option));
+                self.content
+                    .emit(ContentInput::SelectSidebarOption(sidebar_option));
             }
             AppInput::Quit => {
                 main_adw_application().quit();

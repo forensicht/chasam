@@ -1,11 +1,6 @@
 use i18n_embed::{
-    fluent::{
-        fluent_language_loader,
-        FluentLanguageLoader,
-    },
-    DefaultLocalizer,
-    LanguageLoader,
-    Localizer,
+    fluent::{fluent_language_loader, FluentLanguageLoader},
+    DefaultLocalizer, LanguageLoader, Localizer,
 };
 use once_cell::sync::Lazy;
 use rust_embed::RustEmbed;
@@ -16,10 +11,11 @@ struct Localizations;
 
 pub static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
-    loader.load_fallback_language(&Localizations)
+    loader
+        .load_fallback_language(&Localizations)
         .expect("Error while loading fallback language");
 
-	loader
+    loader
 });
 
 #[macro_export]

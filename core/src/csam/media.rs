@@ -1,8 +1,8 @@
 use crate::utils;
 
+use anyhow::{Context, Result};
 use chrono::Local;
 use walkdir::DirEntry;
-use anyhow::{Result, Context};
 
 pub const THUMBNAIL_SIZE: u32 = 240;
 
@@ -73,18 +73,18 @@ impl Media {
         };
 
         let media = Media {
-            name: name,
+            name,
             path: media_path,
-            media_type: media_type,
+            media_type,
             size: media_size,
             last_modified: media_last_modified,
             hash: md5_hash,
-            phash: phash,
+            phash,
             match_type: String::new(),
             hamming: 0,
             data: img_data,
         };
 
         Ok(media)
-    } 
+    }
 }

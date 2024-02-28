@@ -1,10 +1,10 @@
-use crate::utils;
 use super::media::Media;
+use crate::utils;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::{self, Sender, Receiver};
 use threadpool::ThreadPool;
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -21,16 +21,12 @@ pub struct SearchMedia {
 
 impl SearchMedia {
     pub fn new() -> Self {
-        SearchMedia { 
+        SearchMedia {
             stopped: Arc::new(RwLock::new(false)),
         }
     }
 
-    pub fn search(
-        &self,
-        dir: PathBuf,
-        state_sender: Sender<StateMedia>,
-    ) {
+    pub fn search(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
         *self.stopped.write().unwrap() = false;
         let stopped = self.stopped.clone();
         let state_sender = state_sender.clone();
@@ -68,24 +64,28 @@ impl SearchMedia {
 
                     match Media::new(entry) {
                         Ok(media) => {
-                            c_media_sender.blocking_send(media)
+                            c_media_sender
+                                .blocking_send(media)
                                 .expect("could not send `Media`");
                         }
                         Err(error) => {
-                            c_state_sender.blocking_send(StateMedia::Err(error))
+                            c_state_sender
+                                .blocking_send(StateMedia::Err(error))
                                 .expect("could not send `StateMedia::Err`");
                         }
                     }
                 });
             }
 
-            state_sender.blocking_send(StateMedia::Found(found_files))
+            state_sender
+                .blocking_send(StateMedia::Found(found_files))
                 .expect("could not send `StateMedia::Found`");
 
             // wait for thread pool to process all jobs
             thread_pool.join();
 
-            state_sender.blocking_send(StateMedia::Completed)
+            state_sender
+                .blocking_send(StateMedia::Completed)
                 .expect("could not send `StateMedia::Completed`");
 
             drop(media_sender);
@@ -98,15 +98,11 @@ impl SearchMedia {
     }
 
     // Asyncronous function responsible for notifying the search result.
-    fn notify_result(
-        mut media_receiver: Receiver<Media>, 
-        state_sender: Sender<StateMedia>,
-    ) {
+    fn notify_result(mut media_receiver: Receiver<Media>, state_sender: Sender<StateMedia>) {
         std::thread::spawn(move || {
             let mut count = 0;
             let mut vec_medias: Vec<Media> = vec![];
             vec_medias.reserve(100);
-
 
             while let Some(media) = media_receiver.blocking_recv() {
                 vec_medias.push(media);
@@ -114,7 +110,8 @@ impl SearchMedia {
                 if count < 100 {
                     count += 1;
                 } else {
-                    state_sender.blocking_send(StateMedia::Ok(vec_medias.clone()))
+                    state_sender
+                        .blocking_send(StateMedia::Ok(vec_medias.clone()))
                         .expect("could not send `StateMedia::Ok`");
                     vec_medias.clear();
                     count = 0;
@@ -122,7 +119,8 @@ impl SearchMedia {
             }
 
             if count > 0 {
-                state_sender.blocking_send(StateMedia::Ok(vec_medias.clone()))
+                state_sender
+                    .blocking_send(StateMedia::Ok(vec_medias.clone()))
                     .expect("could not send `StateMedia::Ok`");
             }
 

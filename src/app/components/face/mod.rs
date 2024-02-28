@@ -1,21 +1,14 @@
 use std::path::PathBuf;
 
-use crate::app::components::searchbar::{
-    SearchBarModel,
-    SearchBarInput,
-    SearchBarOutput,
-};
+use crate::app::components::searchbar::{SearchBarInput, SearchBarModel, SearchBarOutput};
 
 use relm4::{
-    adw, 
+    adw,
     component::{
-        AsyncComponent, 
-        AsyncComponentSender, 
-        AsyncComponentParts, 
+        AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncComponentSender,
         AsyncController,
-        AsyncComponentController,
-    }, 
-    gtk::prelude::*, 
+    },
+    gtk::prelude::*,
     prelude::*,
 };
 
@@ -24,12 +17,8 @@ pub struct FaceModel {
 }
 
 impl FaceModel {
-    pub fn new(
-        searchbar: AsyncController<SearchBarModel>,
-    ) -> Self {
-        Self {
-            searchbar,
-        }
+    pub fn new(searchbar: AsyncController<SearchBarModel>) -> Self {
+        Self { searchbar }
     }
 }
 
@@ -83,13 +72,14 @@ impl AsyncComponent for FaceModel {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let searchbar_controller = SearchBarModel::builder()
-            .launch(())
-            .forward(sender.input_sender(), |output| match output {
-                SearchBarOutput::StartSearch(path) => FaceInput::StartSearch(path),
-                SearchBarOutput::StopSearch => FaceInput::StopSearch,
-                SearchBarOutput::Notify(msg, timeout) => FaceInput::Notify(msg, timeout),
-            });
+        let searchbar_controller =
+            SearchBarModel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |output| match output {
+                    SearchBarOutput::StartSearch(path) => FaceInput::StartSearch(path),
+                    SearchBarOutput::StopSearch => FaceInput::StopSearch,
+                    SearchBarOutput::Notify(msg, timeout) => FaceInput::Notify(msg, timeout),
+                });
 
         let model = FaceModel::new(searchbar_controller);
         let widgets = view_output!();
@@ -118,7 +108,7 @@ impl AsyncComponent for FaceModel {
             FaceInput::Notify(msg, timeout) => {
                 println!("{} - {}", msg, timeout);
             }
-        }   
+        }
 
         self.update_view(widgets, sender);
     }

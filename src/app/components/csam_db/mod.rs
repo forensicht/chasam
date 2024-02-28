@@ -1,13 +1,9 @@
 use crate::fl;
 
 use relm4::{
-    adw, 
-    component::{
-        AsyncComponent, 
-        AsyncComponentSender, 
-        AsyncComponentParts,
-    }, 
-    gtk::prelude::*, 
+    adw,
+    component::{AsyncComponent, AsyncComponentParts, AsyncComponentSender},
+    gtk::prelude::*,
     prelude::*,
 };
 
@@ -57,7 +53,7 @@ impl AsyncComponent for CsamDBModel {
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let model = CsamDBModel{};
+        let model = CsamDBModel {};
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -69,6 +65,5 @@ impl AsyncComponent for CsamDBModel {
         _sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
-        
     }
 }

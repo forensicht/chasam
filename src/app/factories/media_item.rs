@@ -1,24 +1,13 @@
 use std::collections::VecDeque;
 
+use crate::app::components::csam::toolbar::{ToolbarInput, SELECT_BROKER};
 use crate::app::models;
-use crate::app::components::csam::toolbar::{
-    SELECT_BROKER,
-    ToolbarInput,
-};
 
 use relm4::{
-    binding::{
-        Binding, 
-        BoolBinding, 
-        I32Binding,
-    }, 
-    gtk::{
-        pango, 
-        prelude::*,
-        gdk_pixbuf::Pixbuf,
-    }, 
-    prelude::*, 
-    typed_view::grid::RelmGridItem, 
+    binding::{Binding, BoolBinding, I32Binding},
+    gtk::{gdk_pixbuf::Pixbuf, pango, prelude::*},
+    prelude::*,
+    typed_view::grid::RelmGridItem,
     RelmObjectExt,
 };
 
@@ -65,7 +54,7 @@ impl RelmGridItem for MediaItem {
             root = gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
                 set_css_classes: &["card", "activatable", "media-item-box", "border-spacing"],
-    
+
                 #[name(picture)]
                 gtk::Picture {
                     set_size_request: (models::media::THUMBNAIL_SIZE, models::media::THUMBNAIL_SIZE),
@@ -74,7 +63,7 @@ impl RelmGridItem for MediaItem {
                     set_can_shrink: true,
                     set_halign: gtk::Align::Center,
                     set_valign: gtk::Align::Center,
-                },            
+                },
 
                 gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
@@ -111,9 +100,9 @@ impl RelmGridItem for MediaItem {
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, root: &mut Self::Root) {
-        let Widgets { 
-            picture, 
-            checkbox, 
+        let Widgets {
+            picture,
+            checkbox,
             label,
         } = widgets;
 

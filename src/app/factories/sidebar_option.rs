@@ -1,16 +1,12 @@
 use crate::app::models;
 
 use relm4::{
-    prelude::*,
+    factory::{AsyncFactoryComponent, AsyncFactorySender, DynamicIndex},
     gtk,
     gtk::prelude::*,
-    view,
-    factory::{
-        AsyncFactoryComponent,
-        AsyncFactorySender,
-        DynamicIndex,
-    },
     loading_widgets::LoadingWidgets,
+    prelude::*,
+    view,
 };
 
 #[derive(Debug)]
@@ -79,22 +75,19 @@ impl AsyncFactoryComponent for SidebarOptionModel {
         index: &DynamicIndex,
         _sender: AsyncFactorySender<Self>,
     ) -> Self {
-        Self { 
-            index: index.clone(), 
-            sidebar_option: init, 
+        Self {
+            index: index.clone(),
+            sidebar_option: init,
         }
     }
 
-    async fn update(
-        &mut self,
-        message: Self::Input,
-        sender: AsyncFactorySender<Self>,
-    ) {
-       match message {
-        SidebarOptionInput::Select => {
-            sender.output(SidebarOptionOutput::Selected(self.sidebar_option.clone()))
-                .unwrap_or_default();
+    async fn update(&mut self, message: Self::Input, sender: AsyncFactorySender<Self>) {
+        match message {
+            SidebarOptionInput::Select => {
+                sender
+                    .output(SidebarOptionOutput::Selected(self.sidebar_option.clone()))
+                    .unwrap_or_default();
+            }
         }
-       } 
     }
 }

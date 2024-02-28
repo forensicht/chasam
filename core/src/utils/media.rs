@@ -1,24 +1,18 @@
+use anyhow::Result;
 use image::DynamicImage;
 use sha1::{Digest, Sha1};
-use std::{
-    fs, 
-    io::Cursor, 
-    path::Path,
-};
-use anyhow::Result;
+use std::{fs, io::Cursor, path::Path};
 
 use super::phash;
 
 const MEDIA_TYPE_IMAGES: &[&str] = &["jpeg", "jpg", "png", "bmp", "tiff", "gif"];
-
-const MEDIA_TYPE_VIDEOS: &[&str] = &[
-    "mpeg", "mpg", "mp4", "avi", "ogg", "webm", "flv",
-];
+const MEDIA_TYPE_VIDEOS: &[&str] = &["mpeg", "mpg", "mp4", "avi", "ogg", "webm", "flv"];
 
 pub fn is_image(extension: &str) -> bool {
     MEDIA_TYPE_IMAGES.contains(&extension)
 }
 
+#[allow(unused)]
 pub fn is_video(extension: &str) -> bool {
     MEDIA_TYPE_VIDEOS.contains(&extension)
 }
@@ -56,7 +50,7 @@ where
 
 #[allow(unused)]
 pub fn get_file_hash_md5<P>(path: P) -> Result<String>
-where 
+where
     P: AsRef<Path>,
 {
     if let Some(p) = path.as_ref().to_str() {
@@ -67,7 +61,6 @@ where
 
     Ok(String::new())
 }
-
 
 #[allow(unused)]
 pub fn get_file_perceptual_hash<P>(path: P) -> Result<u64>
@@ -87,11 +80,7 @@ pub fn get_image_perceptual_hash(img: DynamicImage, data: &[u8]) -> Result<u64> 
 }
 
 #[allow(unused)]
-pub fn make_thumbnail<PA, PB>(
-    media_path: PA,
-    thumb_path: PB,
-    thumb_size: u32,
-) -> Result<bool>
+pub fn make_thumbnail<PA, PB>(media_path: PA, thumb_path: PB, thumb_size: u32) -> Result<bool>
 where
     PA: AsRef<Path>,
     PB: AsRef<Path>,
@@ -108,22 +97,25 @@ where
 }
 
 #[allow(unused)]
-pub fn make_thumbnail_to_vec<P>(
-    media_path: P, 
-    thumb_size: u32,
-) -> Result<(DynamicImage, Vec<u8>)>
+pub fn make_thumbnail_to_vec<P>(media_path: P, thumb_size: u32) -> Result<(DynamicImage, Vec<u8>)>
 where
-    P: AsRef<Path>, 
-{   
+    P: AsRef<Path>,
+{
     let mut buf = Vec::new();
     let img = image::open(media_path.as_ref())?;
 
     if img.width() > thumb_size || img.height() > thumb_size {
         let thumbnail = img.thumbnail(thumb_size, thumb_size);
-        thumbnail.write_to(&mut Cursor::new(&mut buf), image::ImageOutputFormat::Jpeg(50))?;
+        thumbnail.write_to(
+            &mut Cursor::new(&mut buf),
+            image::ImageOutputFormat::Jpeg(50),
+        )?;
         Ok((thumbnail, buf))
     } else {
-        img.write_to(&mut Cursor::new(&mut buf), image::ImageOutputFormat::Jpeg(50))?;
+        img.write_to(
+            &mut Cursor::new(&mut buf),
+            image::ImageOutputFormat::Jpeg(50),
+        )?;
         Ok((img, buf))
     }
 }
@@ -166,7 +158,7 @@ mod tests {
         let media_path = Path::new("D:/images_test/horse.jpg");
         let thumb_path = Path::new("D:/images_test/horse_thumb.jpg");
         let thumb_size = 320;
-        
+
         match make_thumbnail(media_path, thumb_path, thumb_size) {
             Ok(_) => assert!(true),
             Err(err) => assert!(false, "{err}"),

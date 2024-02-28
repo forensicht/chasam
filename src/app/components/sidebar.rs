@@ -1,19 +1,13 @@
 use crate::app::{
+    factories::sidebar_option::{SidebarOptionModel, SidebarOptionOutput},
     models,
-    factories::sidebar_option::{
-        SidebarOptionModel,
-        SidebarOptionOutput,
-    },
 };
 
 use relm4::{
+    component::{AsyncComponent, AsyncComponentParts},
+    factory::AsyncFactoryVecDeque,
+    gtk::prelude::*,
     prelude::*,
-    gtk::prelude::*, 
-    component::{
-        AsyncComponent, 
-        AsyncComponentParts,
-    }, 
-    factory::AsyncFactoryVecDeque, 
 };
 
 pub struct SidebarModel {
@@ -36,11 +30,11 @@ impl AsyncComponent for SidebarModel {
     type Input = SidebarInput;
     type Output = SidebarOutput;
     type CommandOutput = ();
-    
+
     view! {
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
-            
+
             gtk::ScrolledWindow {
                 set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
                 set_vexpand: true,
@@ -63,11 +57,12 @@ impl AsyncComponent for SidebarModel {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let mut sidebar_option_factory = AsyncFactoryVecDeque::builder()
-            .launch_default()
-            .forward(sender.input_sender(), |output| match output {
+        let mut sidebar_option_factory = AsyncFactoryVecDeque::builder().launch_default().forward(
+            sender.input_sender(),
+            |output| match output {
                 SidebarOptionOutput::Selected(option) => SidebarInput::SelectedOption(option),
-            });
+            },
+        );
 
         {
             let mut guard = sidebar_option_factory.guard();
@@ -96,9 +91,10 @@ impl AsyncComponent for SidebarModel {
     ) {
         match message {
             SidebarInput::SelectedOption(option) => {
-                sender.output(SidebarOutput::SelectedOption(option))
+                sender
+                    .output(SidebarOutput::SelectedOption(option))
                     .unwrap_or_default();
             }
-        }   
+        }
     }
 }

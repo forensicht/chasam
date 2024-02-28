@@ -1,13 +1,9 @@
 use crate::fl;
 
 use relm4::{
-    prelude::*,
+    component::{AsyncComponent, AsyncComponentParts, AsyncComponentSender},
     gtk::prelude::*,
-    component::{
-        AsyncComponent, 
-        AsyncComponentParts, 
-        AsyncComponentSender,
-    },
+    prelude::*,
     MessageBroker,
 };
 use relm4_icons::icon_name;
@@ -117,7 +113,7 @@ impl AsyncComponent for ToolbarModel {
                     add_css_class: "circular",
                     connect_clicked[sender] => move |_| {
                         sender.output(ToolbarOutput::ZoomOut).unwrap_or_default();
-                    }, 
+                    },
                 },
 
                 gtk::Button {
@@ -147,11 +143,11 @@ impl AsyncComponent for ToolbarModel {
                     set_label: fl!("filter"),
                     set_always_show_arrow: true,
                     set_css_classes: &["flat"],
-                    
+
                     #[wrap(Some)]
                     set_popover: popover = &gtk::Popover {
                         gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical, 
+                            set_orientation: gtk::Orientation::Vertical,
                             set_margin_all: 1,
 
                             gtk::Label {
@@ -201,7 +197,7 @@ impl AsyncComponent for ToolbarModel {
                                                 set_active: true,
                                                 connect_toggled[sender] => move |checkbox| {
                                                     sender.input(ToolbarInput::CheckButtonToggled(
-                                                        SizeOption::Size0KB, 
+                                                        SizeOption::Size0KB,
                                                         checkbox.is_active(),
                                                     ));
                                                 },
@@ -227,7 +223,7 @@ impl AsyncComponent for ToolbarModel {
                                                 set_active: true,
                                                 connect_toggled[sender] => move |checkbox| {
                                                     sender.input(ToolbarInput::CheckButtonToggled(
-                                                        SizeOption::Size30KB, 
+                                                        SizeOption::Size30KB,
                                                         checkbox.is_active(),
                                                     ));
                                                 },
@@ -253,7 +249,7 @@ impl AsyncComponent for ToolbarModel {
                                                 set_active: true,
                                                 connect_toggled[sender] => move |checkbox| {
                                                     sender.input(ToolbarInput::CheckButtonToggled(
-                                                        SizeOption::Size100KB, 
+                                                        SizeOption::Size100KB,
                                                         checkbox.is_active(),
                                                     ));
                                                 },
@@ -279,7 +275,7 @@ impl AsyncComponent for ToolbarModel {
                                                 set_active: true,
                                                 connect_toggled[sender] => move |checkbox| {
                                                     sender.input(ToolbarInput::CheckButtonToggled(
-                                                        SizeOption::Size500KB, 
+                                                        SizeOption::Size500KB,
                                                         checkbox.is_active(),
                                                     ));
                                                 },
@@ -305,7 +301,7 @@ impl AsyncComponent for ToolbarModel {
                                                 set_active: true,
                                                 connect_toggled[sender] => move |checkbox| {
                                                     sender.input(ToolbarInput::CheckButtonToggled(
-                                                        SizeOption::SizeGreater500KB, 
+                                                        SizeOption::SizeGreater500KB,
                                                         checkbox.is_active(),
                                                     ));
                                                 },
@@ -343,9 +339,7 @@ impl AsyncComponent for ToolbarModel {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let model = ToolbarModel {
-            selection_count: 0,
-        };
+        let model = ToolbarModel { selection_count: 0 };
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -368,7 +362,7 @@ impl AsyncComponent for ToolbarModel {
                     widgets.chk_size_greater_500kb.set_active(true);
                 }
             }
-            ToolbarInput::CleanFilters => {                
+            ToolbarInput::CleanFilters => {
                 widgets.chk_all_size.set_active(true);
                 widgets.search_entry.set_text("");
             }
@@ -387,31 +381,35 @@ impl AsyncComponent for ToolbarModel {
                 }
 
                 match size_option {
-                    SizeOption::Size0KB => { 
-                        sender.output(ToolbarOutput::SizeFilter0KB(is_selected))
+                    SizeOption::Size0KB => {
+                        sender
+                            .output(ToolbarOutput::SizeFilter0KB(is_selected))
                             .unwrap_or_default();
                     }
-                    SizeOption::Size30KB => { 
-                        sender.output(ToolbarOutput::SizeFilter30KB(is_selected))
+                    SizeOption::Size30KB => {
+                        sender
+                            .output(ToolbarOutput::SizeFilter30KB(is_selected))
                             .unwrap_or_default();
                     }
-                    SizeOption::Size100KB => { 
-                        sender.output(ToolbarOutput::SizeFilter100KB(is_selected))
+                    SizeOption::Size100KB => {
+                        sender
+                            .output(ToolbarOutput::SizeFilter100KB(is_selected))
                             .unwrap_or_default();
                     }
                     SizeOption::Size500KB => {
-                        sender.output(ToolbarOutput::SizeFilter500KB(is_selected))
+                        sender
+                            .output(ToolbarOutput::SizeFilter500KB(is_selected))
                             .unwrap_or_default();
                     }
                     SizeOption::SizeGreater500KB => {
-                        sender.output(ToolbarOutput::SizeFilterGreater500KB(is_selected))
+                        sender
+                            .output(ToolbarOutput::SizeFilterGreater500KB(is_selected))
                             .unwrap_or_default();
                     }
                 }
             }
         }
 
-        self.update_view(widgets, sender);    
+        self.update_view(widgets, sender);
     }
-
 }

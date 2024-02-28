@@ -1,19 +1,12 @@
 use crate::app::{
+    components::{csam::CsamModel, csam_db::CsamDBModel, face::FaceModel},
     models::SidebarOption,
-    components::{
-        csam::CsamModel,
-        face::FaceModel,
-        csam_db::CsamDBModel,
-    },
 };
 
 use relm4::{
-    prelude::*,
+    component::{AsyncComponent, AsyncComponentParts},
     gtk::prelude::*,
-    component::{
-        AsyncComponent,
-        AsyncComponentParts,
-    },
+    prelude::*,
     AsyncComponentSender,
 };
 
@@ -64,7 +57,7 @@ impl AsyncComponent for ContentModel {
                 Some(SidebarOption::CSAM) => {
                     gtk::Box {
                         #[watch]
-						set_visible: model.sidebar_option.is_some(),
+                        set_visible: model.sidebar_option.is_some(),
                         set_orientation: gtk::Orientation::Vertical,
                         append: model.csam.widget(),
                     }
@@ -72,7 +65,7 @@ impl AsyncComponent for ContentModel {
                 Some(SidebarOption::Face) => {
                     gtk::Box {
                         #[watch]
-						set_visible: model.sidebar_option.is_some(),
+                        set_visible: model.sidebar_option.is_some(),
                         set_orientation: gtk::Orientation::Vertical,
                         append: model.face.widget(),
                     }
@@ -80,7 +73,7 @@ impl AsyncComponent for ContentModel {
                 Some(SidebarOption::DB) => {
                     gtk::Box {
                         #[watch]
-						set_visible: model.sidebar_option.is_some(),
+                        set_visible: model.sidebar_option.is_some(),
                         set_orientation: gtk::Orientation::Vertical,
                         append: model.csam_db.widget(),
                     }
@@ -91,7 +84,7 @@ impl AsyncComponent for ContentModel {
                     }
                 }
             }
-        } 
+        }
     }
 
     async fn init(
@@ -99,21 +92,13 @@ impl AsyncComponent for ContentModel {
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let csam_controller = CsamModel::builder()
-            .launch(())
-            .detach();
-
-        let face_controller = FaceModel::builder()
-            .launch(())
-            .detach();
-
-        let csam_db_controller = CsamDBModel::builder()
-            .launch(())
-            .detach();
+        let csam_controller = CsamModel::builder().launch(()).detach();
+        let face_controller = FaceModel::builder().launch(()).detach();
+        let csam_db_controller = CsamDBModel::builder().launch(()).detach();
 
         let model = ContentModel::new(
             csam_controller,
-            face_controller, 
+            face_controller,
             csam_db_controller,
             Some(SidebarOption::CSAM),
         );

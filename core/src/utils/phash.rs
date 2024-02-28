@@ -1,10 +1,6 @@
-use image::{
-    imageops::FilterType, 
-    Luma, 
-    DynamicImage,
-};
-use std::path::Path;
 use anyhow::Result;
+use image::{imageops::FilterType, DynamicImage, Luma};
+use std::path::Path;
 
 type PixelMatrix = Vec<Vec<Luma<u8>>>;
 
@@ -41,10 +37,7 @@ where
 }
 
 #[allow(unused)]
-pub fn difference_hash_raw(
-    img: DynamicImage, 
-    buf: &[u8],
-) -> Result<u64> { 
+pub fn difference_hash_raw(img: DynamicImage, buf: &[u8]) -> Result<u64> {
     let (w, h) = (9, 8);
     let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
     let img_buf = img_resized.to_luma8();
@@ -64,7 +57,6 @@ pub fn difference_hash_raw(
     }
 
     return Ok(hash);
-    
 }
 
 #[allow(unused)]
@@ -178,12 +170,10 @@ mod tests {
         let thumb_size = 240;
 
         match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, buf)) => {
-                match difference_hash_raw(img, &buf) {
-                    Ok(hash) => assert_ne!(hash, 0),
-                    Err(err) => assert!(false, "{err}"),
-                }
-            }
+            Ok((img, buf)) => match difference_hash_raw(img, &buf) {
+                Ok(hash) => assert_ne!(hash, 0),
+                Err(err) => assert!(false, "{err}"),
+            },
             Err(err) => assert!(false, "{err}"),
         }
     }
