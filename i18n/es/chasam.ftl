@@ -46,6 +46,14 @@ stop = Detener
 directory = Directorio
 select-directory = Seleccionar directorio
 
+# Statusbar
+processed-files = Archivos procesados:
+out-of = de
+calculating = calculador
+images = Imágenes
+videos = Vídeos
+suspects-files = Archivos sospechosos
+
 # Content
 open = Abierto
 cancel = Cancelar

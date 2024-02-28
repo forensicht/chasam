@@ -1,4 +1,5 @@
 pub mod media_details;
+pub mod statusbar;
 pub mod toolbar;
 
 use crate::app::{
@@ -9,7 +10,8 @@ use crate::app::{
 use crate::fl;
 use core_chasam as service;
 use core_chasam::csam::StateMedia;
-use media_details::{MediaDetailsInput, MediaDetailsModel};
+use media_details::{MediaDetailsInput, MediaDetailsModel, MediaDetailsOutput};
+use statusbar::{StatusbarInput, StatusbarModel};
 use toolbar::{ToolbarModel, ToolbarOutput};
 
 use std::cell::RefCell;
@@ -32,6 +34,7 @@ use relm4::{
 pub struct CsamModel {
     searchbar: AsyncController<SearchBarModel>,
     toolbar: AsyncController<ToolbarModel>,
+    statusbar: Controller<StatusbarModel>,
     media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
     media_list_filter: Rc<RefCell<models::MediaFilter>>,
     media_details: Controller<MediaDetailsModel>,
@@ -43,6 +46,7 @@ impl CsamModel {
     pub fn new(
         searchbar: AsyncController<SearchBarModel>,
         toolbar: AsyncController<ToolbarModel>,
+        statusbar: Controller<StatusbarModel>,
         media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
         media_details: Controller<MediaDetailsModel>,
         service: service::csam::SearchMedia,
@@ -50,6 +54,7 @@ impl CsamModel {
         Self {
             searchbar,
             toolbar,
+            statusbar,
             media_list_wrapper,
             media_list_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
             media_details,
@@ -118,6 +123,7 @@ impl AsyncComponent for CsamModel {
 
                 append = model.toolbar.widget(),
 
+                #[name(overlay)]
                 append = &adw::ToastOverlay {
                     #[wrap(Some)]
                     set_child = &gtk::Box {
@@ -133,13 +139,13 @@ impl AsyncComponent for CsamModel {
                             set_resize_end_child: true,
                             set_shrink_start_child: false,
                             set_shrink_end_child: false,
-                            set_margin_bottom: 6,
+                            set_margin_bottom: 5,
                             set_margin_end: 6,
                             set_margin_start: 6,
 
                             #[wrap(Some)]
                             set_start_child = &gtk::Frame {
-                                set_width_request: 900,
+                                set_width_request: 960,
                                 set_vexpand: true,
                                 set_margin_end: 6,
 
@@ -173,6 +179,8 @@ impl AsyncComponent for CsamModel {
                     },
                 },
             },
+
+            append = model.statusbar.widget(),
         }
     }
 
@@ -206,14 +214,30 @@ impl AsyncComponent for CsamModel {
                 }
             });
 
-        let media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection> = TypedGridView::new();
+        let statusbar_controller = StatusbarModel::builder().launch(()).detach();
 
-        let media_details_controller = MediaDetailsModel::builder().launch(()).detach();
+        let media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection> = TypedGridView::new();
+        media_list_wrapper
+            .selection_model
+            .property_expression("n-items")
+            .bind(
+                &statusbar_controller.widgets().label_media_found,
+                "label",
+                gtk::Widget::NONE,
+            );
+
+        let media_details_controller =
+            MediaDetailsModel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |output| match output {
+                    MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
+                });
 
         let service = service::csam::SearchMedia::new();
         let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
+            statusbar_controller,
             media_list_wrapper,
             media_details_controller,
             service,
@@ -245,6 +269,7 @@ impl AsyncComponent for CsamModel {
             }
             CsamInput::StartSearch(path) => {
                 self.media_list_wrapper.clear();
+                self.statusbar.emit(StatusbarInput::Reset);
                 self.on_search(path, &sender).await;
             }
             CsamInput::StopSearch => {
@@ -286,7 +311,8 @@ impl AsyncComponent for CsamModel {
                 }
             }
             CsamInput::Notify(msg, timeout) => {
-                println!("{} - {}", msg, timeout);
+                let toast = adw::Toast::builder().title(msg).timeout(timeout).build();
+                widgets.overlay.add_toast(toast);
             }
         }
 
@@ -304,8 +330,9 @@ impl AsyncComponent for CsamModel {
                 println!("Search Completed");
                 self.searchbar.emit(SearchBarInput::SearchCompleted);
             }
-            CsamCommandOutput::MediaFound(count) => {
-                println!("Media Found: {}", count);
+            CsamCommandOutput::MediaFound(found) => {
+                println!("Media Found: {}", found);
+                self.statusbar.emit(StatusbarInput::TotalFound(found));
             }
             CsamCommandOutput::AddMedia(result) => match result {
                 Ok(medias) => {
@@ -313,6 +340,19 @@ impl AsyncComponent for CsamModel {
                         .into_iter()
                         .map(|media| MediaItem::new(media))
                         .collect::<Vec<MediaItem>>();
+
+                    for item in media_items.iter() {
+                        if item.is_video() {
+                            self.statusbar.emit(StatusbarInput::VideoFound(1));
+                        } else {
+                            self.statusbar.emit(StatusbarInput::ImageFound(1));
+                        }
+
+                        if item.is_csam() {
+                            self.statusbar.emit(StatusbarInput::SuspectsFound(1));
+                        }
+                    }
+
                     self.media_list_wrapper.extend_from_iter(media_items);
                 }
                 Err(error) => tracing::error!("{}: {}", fl!("generic-error"), error),

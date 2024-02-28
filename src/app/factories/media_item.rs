@@ -134,4 +134,12 @@ impl MediaItem {
         let pixbuf = Pixbuf::from_read(bytes).ok()?;
         Some(pixbuf)
     }
+
+    pub fn is_video(&self) -> bool {
+        self.media.media_type == "video"
+    }
+
+    pub fn is_csam(&self) -> bool {
+        !self.media.match_type.is_empty()
+    }
 }
