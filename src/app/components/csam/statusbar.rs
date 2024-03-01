@@ -1,8 +1,11 @@
 use crate::fl;
 use relm4::{
     component::{ComponentParts, SimpleComponent},
-    gtk::prelude::{BoxExt, OrientableExt, WidgetExt},
-    prelude::*,
+    gtk::{
+        self,
+        prelude::{BoxExt, OrientableExt, WidgetExt},
+    },
+    ComponentSender,
 };
 
 pub struct StatusbarModel {
@@ -16,7 +19,7 @@ pub struct StatusbarModel {
 pub enum StatusbarInput {
     Reset,
     ImageFound(usize),
-    SuspectsFound(usize),
+    CSAMFound(usize),
     VideoFound(usize),
     TotalFound(usize),
 }
@@ -122,7 +125,7 @@ impl SimpleComponent for StatusbarModel {
                 self.total_found = 0;
             }
             StatusbarInput::ImageFound(found) => self.image_found += found,
-            StatusbarInput::SuspectsFound(found) => self.suspects_found += found,
+            StatusbarInput::CSAMFound(found) => self.suspects_found += found,
             StatusbarInput::VideoFound(found) => self.video_found = found,
             StatusbarInput::TotalFound(found) => self.total_found = found,
         }

@@ -7,10 +7,16 @@ use walkdir::DirEntry;
 pub const THUMBNAIL_SIZE: u32 = 240;
 
 #[derive(Debug, Clone)]
+pub enum MediaType {
+    Image,
+    Video,
+}
+
+#[derive(Debug, Clone)]
 pub struct Media {
     pub name: String,
     pub path: String,
-    pub media_type: String,
+    pub media_type: MediaType,
     pub size: usize,
     pub last_modified: i64,
     pub hash: String,
@@ -29,9 +35,9 @@ impl Media {
         // get the media type
         let media_type = match entry.path().extension() {
             Some(e) if utils::media::is_image(&e.to_string_lossy().to_lowercase()) => {
-                String::from("image")
+                MediaType::Image
             }
-            _ => String::from("video"),
+            _ => MediaType::Video,
         };
         // get the media size
         let media_size = (metadata.len() as f64 / 1024.0_f64).round() as usize;
@@ -48,16 +54,17 @@ impl Media {
         let md5_hash = utils::media::get_file_hash_md5(&media_path).unwrap_or_default();
 
         // make thumbnail
-        let (dynamic_img, img_data) = if media_type == "image" {
-            match utils::media::make_thumbnail_to_vec(&media_path, THUMBNAIL_SIZE) {
-                Ok((img, buf)) => (Some(img), Some(buf)),
-                Err(err) => {
-                    tracing::error!("{} : {}", media_path.as_str(), err);
-                    (None, None)
+        let (dynamic_img, img_data) = match media_type {
+            MediaType::Image => {
+                match utils::media::make_thumbnail_to_vec(&media_path, THUMBNAIL_SIZE) {
+                    Ok((img, buf)) => (Some(img), Some(buf)),
+                    Err(err) => {
+                        tracing::error!("{} : {}", media_path.as_str(), err);
+                        (None, None)
+                    }
                 }
             }
-        } else {
-            (None, None)
+            MediaType::Video => (None, None),
         };
 
         // perceptual hash of the file

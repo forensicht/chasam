@@ -17,6 +17,7 @@ impl AsyncComponent for CsamDBModel {
     type CommandOutput = ();
 
     view! {
+        #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
 

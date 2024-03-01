@@ -26,11 +26,4 @@ features = ["debug-embed"]
 
 [dependencies.tokio]
 version = "1.36"
-features = [
-    "rt",
-    "rt-multi-thread",
-    "sync",
-    "fs",
-    "io-util",
-    "macros",
-]
+features = ["rt", "rt-multi-thread", "sync", "fs", "io-util", "macros"]

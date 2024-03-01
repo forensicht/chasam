@@ -16,11 +16,13 @@ use relm4::{
     adw,
     component::{AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController},
     gtk::glib,
-    gtk::prelude::*,
+    gtk::{
+        self,
+        prelude::{ApplicationExt, BoxExt, Cast, GtkWindowExt, OrientableExt, WidgetExt},
+    },
     loading_widgets::LoadingWidgets,
-    main_adw_application,
-    prelude::*,
-    view, AsyncComponentSender, ComponentBuilder, ComponentController, Controller,
+    main_adw_application, view, AsyncComponentSender, ComponentBuilder, ComponentController,
+    Controller, RelmWidgetExt,
 };
 use relm4_icons::icon_name;
 

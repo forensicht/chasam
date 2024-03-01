@@ -5,10 +5,14 @@ use crate::app::models;
 
 use relm4::{
     binding::{Binding, BoolBinding, I32Binding},
-    gtk::{gdk_pixbuf::Pixbuf, pango, prelude::*},
-    prelude::*,
+    gtk::{
+        self,
+        gdk_pixbuf::Pixbuf,
+        pango,
+        prelude::{CheckButtonExt, OrientableExt, WidgetExt},
+    },
     typed_view::grid::RelmGridItem,
-    RelmObjectExt,
+    RelmWidgetExt,
 };
 
 #[derive(Debug)]
@@ -73,6 +77,7 @@ impl RelmGridItem for MediaItem {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         set_css_classes: &["border-spacing"],
+
                         connect_toggled => move |checkbox| {
                             SELECT_BROKER.send(ToolbarInput::SelectedItem(checkbox.is_active()));
                         },
@@ -136,7 +141,10 @@ impl MediaItem {
     }
 
     pub fn is_video(&self) -> bool {
-        self.media.media_type == "video"
+        match self.media.media_type {
+            models::media::MediaType::Video => true,
+            _ => false,
+        }
     }
 
     pub fn is_csam(&self) -> bool {

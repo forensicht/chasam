@@ -3,7 +3,11 @@ use crate::fl;
 
 use relm4::{
     adw,
-    adw::prelude::*,
+    adw::prelude::{
+        ActionRowExt, AdwWindowExt, BoxExt, CheckButtonExt, ComboRowExt, GtkWindowExt, IsA,
+        MessageDialogExt, OrientableExt, PreferencesGroupExt, PreferencesPageExt,
+        PreferencesRowExt, WidgetExt,
+    },
     component::{AsyncComponent, AsyncComponentParts},
     gtk, AsyncComponentSender,
 };
@@ -28,6 +32,7 @@ impl AsyncComponent for PreferencesModel {
     type CommandOutput = ();
 
     view! {
+        #[root]
         adw::PreferencesWindow {
             set_title: Some(fl!("preferences")),
             set_hide_on_close: true,

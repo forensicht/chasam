@@ -4,20 +4,17 @@ use crate::app::components::searchbar::{SearchBarInput, SearchBarModel, SearchBa
 
 use relm4::{
     adw,
-    component::{
-        AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncComponentSender,
-        AsyncController,
-    },
-    gtk::prelude::*,
+    component::{AsyncComponent, AsyncComponentParts, AsyncComponentSender, Controller},
+    gtk::prelude::{BoxExt, OrientableExt, WidgetExt},
     prelude::*,
 };
 
 pub struct FaceModel {
-    searchbar: AsyncController<SearchBarModel>,
+    searchbar: Controller<SearchBarModel>,
 }
 
 impl FaceModel {
-    pub fn new(searchbar: AsyncController<SearchBarModel>) -> Self {
+    pub fn new(searchbar: Controller<SearchBarModel>) -> Self {
         Self { searchbar }
     }
 }
@@ -38,6 +35,7 @@ impl AsyncComponent for FaceModel {
     type CommandOutput = ();
 
     view! {
+        #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
 

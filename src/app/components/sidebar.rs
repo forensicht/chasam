@@ -4,9 +4,9 @@ use crate::app::{
 };
 
 use relm4::{
-    component::{AsyncComponent, AsyncComponentParts},
+    component::{AsyncComponentParts, SimpleAsyncComponent},
     factory::AsyncFactoryVecDeque,
-    gtk::prelude::*,
+    gtk::prelude::{OrientableExt, WidgetExt},
     prelude::*,
 };
 
@@ -25,13 +25,13 @@ pub enum SidebarOutput {
 }
 
 #[relm4::component(pub async)]
-impl AsyncComponent for SidebarModel {
+impl SimpleAsyncComponent for SidebarModel {
     type Init = ();
     type Input = SidebarInput;
     type Output = SidebarOutput;
-    type CommandOutput = ();
 
     view! {
+        #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
 
@@ -83,12 +83,7 @@ impl AsyncComponent for SidebarModel {
         AsyncComponentParts { model, widgets }
     }
 
-    async fn update(
-        &mut self,
-        message: Self::Input,
-        sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
+    async fn update(&mut self, message: Self::Input, sender: AsyncComponentSender<Self>) {
         match message {
             SidebarInput::SelectedOption(option) => {
                 sender

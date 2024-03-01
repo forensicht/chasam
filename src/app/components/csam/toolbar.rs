@@ -1,10 +1,13 @@
 use crate::fl;
 
 use relm4::{
-    component::{AsyncComponent, AsyncComponentParts, AsyncComponentSender},
-    gtk::prelude::*,
+    component::{Component, ComponentParts},
+    gtk::prelude::{
+        BoxExt, ButtonExt, CheckButtonExt, EditableExt, OrientableExt, RangeExt, ScaleExt,
+        WidgetExt,
+    },
     prelude::*,
-    MessageBroker,
+    ComponentSender, MessageBroker,
 };
 use relm4_icons::icon_name;
 
@@ -36,7 +39,11 @@ pub enum ToolbarOutput {
     ZoomIn,
     ZoomOut,
     SelectAll(bool),
+    HammingDistanceFilter(u32),
     SearchEntry(String),
+    ImageFilter(bool),
+    VideoFilter(bool),
+    CSAMFilter(bool),
     SizeFilter0KB(bool),
     SizeFilter30KB(bool),
     SizeFilter100KB(bool),
@@ -44,14 +51,15 @@ pub enum ToolbarOutput {
     SizeFilterGreater500KB(bool),
 }
 
-#[relm4::component(pub async)]
-impl AsyncComponent for ToolbarModel {
+#[relm4::component(pub)]
+impl Component for ToolbarModel {
     type Init = ();
     type Input = ToolbarInput;
     type Output = ToolbarOutput;
     type CommandOutput = ();
 
     view! {
+        #[root]
         #[name = "toolbar"]
         gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
@@ -126,9 +134,50 @@ impl AsyncComponent for ToolbarModel {
                 },
             },
 
+            gtk::Frame {
+                set_margin_start: 6,
+                set_margin_end: 6,
+
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    set_margin_start: 6,
+                    set_margin_end: 12,
+
+                    gtk::Label {
+                        set_label: fl!("hamming"),
+                        set_halign: gtk::Align::Start,
+                        set_valign: gtk::Align::Center,
+                    },
+
+                    #[name(label_hamming)]
+                    gtk::Label {
+                        set_label: "20",
+                        set_halign: gtk::Align::Start,
+                        set_valign: gtk::Align::Center,
+                        set_margin_start: 6,
+                        set_margin_end: 12,
+                    },
+
+                    #[name(scale_hamming)]
+                    gtk::Scale {
+                        set_halign: gtk::Align::End,
+                        set_valign: gtk::Align::Center,
+                        set_round_digits: 0,
+                        set_draw_value: false,
+                        set_digits: 0,
+                        set_width_request: 100,
+                        set_adjustment: &gtk::Adjustment::new(20f64, 1f64, 20f64, 1f64, 20f64, 0f64),
+                        connect_value_changed[sender, label_hamming] => move |scale| {
+                            let value: u32 = scale.value().round() as u32;
+                            label_hamming.set_label(&value.to_string());
+                            sender.output(ToolbarOutput::HammingDistanceFilter(value)).unwrap_or_default();
+                        },
+                    },
+                },
+            },
+
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
-                set_width_request: 388,
                 set_hexpand: false,
                 set_halign: gtk::Align::End,
                 set_spacing: 6,
@@ -149,6 +198,111 @@ impl AsyncComponent for ToolbarModel {
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_margin_all: 1,
+
+                            gtk::Label {
+                                set_label: fl!("csam"),
+                                set_xalign: 0.0,
+                                set_margin_bottom: 3,
+                                set_css_classes: &["title-4"],
+                            },
+
+                            gtk::Frame {
+                                gtk::ListBox {
+                                    set_selection_mode: gtk::SelectionMode::None,
+                                    set_show_separators: false,
+                                    set_css_classes: &["rich-list"],
+
+                                    gtk::ListBoxRow {
+                                        gtk::Box {
+                                            #[name(chk_csam)]
+                                            gtk::CheckButton {
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_margin_start: 0,
+                                                set_margin_end: 0,
+                                                set_active: false,
+                                                connect_toggled[sender] => move |checkbox| {
+                                                    sender
+                                                        .output(ToolbarOutput::CSAMFilter(checkbox.is_active()))
+                                                        .unwrap_or_default();
+                                                }
+                                            },
+                                            gtk::Label {
+                                                set_label: fl!("csam"),
+                                                set_xalign: 0.0,
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_hexpand: true,
+                                            },
+                                        }
+                                    },
+                                },
+                            },
+
+                            gtk::Label {
+                                set_label: fl!("media-type"),
+                                set_xalign: 0.0,
+                                set_margin_bottom: 3,
+                                set_css_classes: &["title-4"],
+                            },
+
+                            gtk::Frame {
+                                gtk::ListBox {
+                                    set_selection_mode: gtk::SelectionMode::None,
+                                    set_show_separators: false,
+                                    set_css_classes: &["rich-list"],
+
+                                    gtk::ListBoxRow {
+                                        gtk::Box {
+                                            #[name(chk_image)]
+                                            gtk::CheckButton {
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_margin_start: 0,
+                                                set_margin_end: 0,
+                                                set_active: true,
+                                                connect_toggled[sender] => move |checkbox| {
+                                                    sender
+                                                        .output(ToolbarOutput::ImageFilter(checkbox.is_active()))
+                                                        .unwrap_or_default();
+                                                }
+                                            },
+                                            gtk::Label {
+                                                set_label: fl!("image"),
+                                                set_xalign: 0.0,
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_hexpand: true,
+                                            },
+                                        }
+                                    },
+
+                                    gtk::ListBoxRow {
+                                        gtk::Box {
+                                            #[name(chk_video)]
+                                            gtk::CheckButton {
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_margin_start: 0,
+                                                set_margin_end: 0,
+                                                set_active: true,
+                                                connect_toggled[sender] => move |checkbox| {
+                                                    sender
+                                                        .output(ToolbarOutput::VideoFilter(checkbox.is_active()))
+                                                        .unwrap_or_default();
+                                                }
+                                            },
+                                            gtk::Label {
+                                                set_label: fl!("video"),
+                                                set_xalign: 0.0,
+                                                set_halign: gtk::Align::Start,
+                                                set_valign: gtk::Align::Center,
+                                                set_hexpand: true,
+                                            },
+                                        }
+                                    },
+                                },
+                            },
 
                             gtk::Label {
                                 set_label: fl!("size"),
@@ -334,22 +488,22 @@ impl AsyncComponent for ToolbarModel {
         }
     }
 
-    async fn init(
+    fn init(
         _init: Self::Init,
         root: Self::Root,
-        sender: AsyncComponentSender<Self>,
-    ) -> AsyncComponentParts<Self> {
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let model = ToolbarModel { selection_count: 0 };
         let widgets = view_output!();
 
-        AsyncComponentParts { model, widgets }
+        ComponentParts { model, widgets }
     }
 
-    async fn update_with_view(
+    fn update_with_view(
         &mut self,
         widgets: &mut Self::Widgets,
         message: Self::Input,
-        sender: AsyncComponentSender<Self>,
+        sender: ComponentSender<Self>,
         _root: &Self::Root,
     ) {
         match message {
@@ -363,6 +517,9 @@ impl AsyncComponent for ToolbarModel {
                 }
             }
             ToolbarInput::CleanFilters => {
+                widgets.chk_csam.set_active(false);
+                widgets.chk_image.set_active(true);
+                widgets.chk_video.set_active(true);
                 widgets.chk_all_size.set_active(true);
                 widgets.search_entry.set_text("");
             }

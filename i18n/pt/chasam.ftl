@@ -15,12 +15,16 @@ zoom-out = Diminuir zoom
 zoom-in = Aumentar zoom
 deselect-all = Desmarcar todos
 select-all = Marcar todos
+hamming = Hamming
 filter = Filtro
 size = Tamanho
 greater-than-500-kb = Maior que 500 KB
 all-sizes = Exibir tudo
 clean-filters = Limpar filtros
 selected-count = Selecionados:
+media-type = Tipo de Mídia
+image = Imagem
+video = Vídeo 
 
 # Preferences
 preferences = Preferências
@@ -58,15 +62,14 @@ open = Abrir
 cancel = Cancelar
 
 # Media Details
-media-name = Nome:
-media-path = Caminho:
-media-type = Tipo:
-media-size = Tamanho:
-media-last-modified = Última modificação:
-media-hash = Hash:
-media-phash = Hash perceptivo:
-media-match-type = Tipo do match:
-media-hamming-distance = Distância de hamming:
+name = Nome
+path = Caminho
+type = Tipo
+last-modified = Última modificação
+hash = MD5
+phash = Hash perceptivo
+match-type = Tipo do match
+hamming-distance = Distância de hamming
 
 # Errors
 generic-error = Um erro ocorreu:

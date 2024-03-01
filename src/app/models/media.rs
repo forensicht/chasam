@@ -1,14 +1,36 @@
+use crate::fl;
 use core_chasam as core;
+
+use chrono::prelude::*;
 
 pub const ZOOM_SIZE: i32 = 20;
 pub const ZOOM_LIMIT: i32 = 240;
 pub const THUMBNAIL_SIZE: i32 = 160;
+pub const HAMMING_DISTANCE: u32 = 20;
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum MediaType {
+    #[default]
+    Image,
+    Video,
+}
+
+impl MediaType {
+    pub fn name(&self) -> String {
+        let image: &String = fl!("image");
+        let video: &String = fl!("video");
+        match self {
+            Self::Image => image.clone(),
+            Self::Video => video.clone(),
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct Media {
     pub name: String,
     pub path: String,
-    pub media_type: String,
+    pub media_type: MediaType,
     pub size: usize,
     pub last_modified: i64,
     pub hash: String,
@@ -25,7 +47,10 @@ impl From<&core::csam::Media> for Media {
         Self {
             name: media.name.clone(),
             path: media.path.clone(),
-            media_type: media.media_type.clone(),
+            media_type: match media.media_type {
+                core::csam::MediaType::Image => MediaType::Image,
+                core::csam::MediaType::Video => MediaType::Video,
+            },
             size: media.size,
             last_modified: media.last_modified,
             hash: media.hash.clone(),
@@ -44,26 +69,40 @@ pub struct MediaDetail {
     pub name: String,
     pub path: String,
     pub media_type: String,
-    pub size: usize,
-    pub last_modified: i64,
+    pub size: String,
+    pub last_modified: String,
     pub hash: String,
-    pub phash: u64,
+    pub phash: String,
     pub match_type: String,
-    pub hamming: u32,
+    pub hamming: String,
 }
 
 impl From<&Media> for MediaDetail {
     fn from(media: &Media) -> Self {
+        let date_time = Local.timestamp_opt(media.last_modified, 0);
+
         Self {
             name: media.name.clone(),
             path: media.path.clone(),
-            media_type: media.media_type.clone(),
-            size: media.size,
-            last_modified: media.last_modified,
+            media_type: media.media_type.clone().name(),
+            size: if media.size > 1024 {
+                format!("{:.2} MB", (media.size / 1024) as f64)
+            } else {
+                format!("{} KB", media.size)
+            },
+            last_modified: if let Some(date_time) = date_time.single() {
+                date_time.format("%d/%m/%Y %H:%M:%S").to_string()
+            } else {
+                String::new()
+            },
             hash: media.hash.clone(),
-            phash: media.phash,
+            phash: format!("{:X}", media.phash),
             match_type: media.match_type.clone(),
-            hamming: media.hamming,
+            hamming: if media.hamming > 0 {
+                media.hamming.to_string()
+            } else {
+                String::new()
+            },
         }
     }
 }
@@ -71,22 +110,30 @@ impl From<&Media> for MediaDetail {
 #[derive(Debug)]
 pub struct MediaFilter {
     pub search_entry: Option<String>,
-    pub size_0: bool,
-    pub size_30: bool,
-    pub size_100: bool,
-    pub size_500: bool,
-    pub size_greater_500: bool,
+    pub is_image: bool,
+    pub is_video: bool,
+    pub is_csam: bool,
+    pub is_size_0: bool,
+    pub is_size_30: bool,
+    pub is_size_100: bool,
+    pub is_size_500: bool,
+    pub is_size_greater_500: bool,
+    pub hamming_distance: u32,
 }
 
 impl Default for MediaFilter {
     fn default() -> Self {
         Self {
             search_entry: None,
-            size_0: true,
-            size_30: true,
-            size_100: true,
-            size_500: true,
-            size_greater_500: true,
+            is_image: true,
+            is_video: true,
+            is_csam: false,
+            is_size_0: true,
+            is_size_30: true,
+            is_size_100: true,
+            is_size_500: true,
+            is_size_greater_500: true,
+            hamming_distance: HAMMING_DISTANCE,
         }
     }
 }

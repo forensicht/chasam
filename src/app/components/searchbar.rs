@@ -3,9 +3,10 @@ use crate::fl;
 use std::path::PathBuf;
 
 use relm4::{
-    component::{AsyncComponent, AsyncComponentParts, AsyncComponentSender, Controller},
-    gtk::prelude::*,
+    component::{Component, ComponentParts, Controller},
+    gtk::prelude::{BoxExt, ButtonExt, EditableExt, EntryExt, OrientableExt, WidgetExt},
     prelude::*,
+    ComponentSender,
 };
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_name;
@@ -33,15 +34,16 @@ pub enum SearchBarOutput {
     Notify(String, u32),
 }
 
-#[relm4::component(pub async)]
-impl AsyncComponent for SearchBarModel {
+#[relm4::component(pub)]
+impl Component for SearchBarModel {
     type Init = ();
     type Input = SearchBarInput;
     type Output = SearchBarOutput;
     type CommandOutput = ();
 
     view! {
-       gtk::Box {
+        #[root]
+        gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
             set_hexpand: true,
             set_spacing: 6,
@@ -83,11 +85,11 @@ impl AsyncComponent for SearchBarModel {
         }
     }
 
-    async fn init(
+    fn init(
         _init: Self::Init,
         root: Self::Root,
-        sender: AsyncComponentSender<Self>,
-    ) -> AsyncComponentParts<Self> {
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let open_dialog_settings = OpenDialogSettings {
             folder_mode: true,
             accept_label: String::from(fl!("open")),
@@ -113,15 +115,10 @@ impl AsyncComponent for SearchBarModel {
 
         let widgets = view_output!();
 
-        AsyncComponentParts { model, widgets }
+        ComponentParts { model, widgets }
     }
 
-    async fn update(
-        &mut self,
-        message: Self::Input,
-        sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             SearchBarInput::StartSearch => {
                 if self.file_path.exists() {

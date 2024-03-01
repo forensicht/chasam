@@ -23,20 +23,22 @@ use relm4::{
     adw,
     binding::Binding,
     component::{
-        AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncComponentSender,
-        AsyncController, Controller,
+        AsyncComponent, AsyncComponentParts, AsyncComponentSender, ComponentController, Controller,
     },
-    gtk::prelude::*,
-    prelude::*,
+    gtk::{
+        self,
+        prelude::{BoxExt, Cast, FrameExt, GObjectPropertyExpressionExt, OrientableExt, WidgetExt},
+    },
     typed_view::grid::TypedGridView,
+    Component,
 };
 
 pub struct CsamModel {
-    searchbar: AsyncController<SearchBarModel>,
-    toolbar: AsyncController<ToolbarModel>,
+    searchbar: Controller<SearchBarModel>,
+    toolbar: Controller<ToolbarModel>,
     statusbar: Controller<StatusbarModel>,
     media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
-    media_list_filter: Rc<RefCell<models::MediaFilter>>,
+    media_filter: Rc<RefCell<models::MediaFilter>>,
     media_details: Controller<MediaDetailsModel>,
     thumbnail_size: i32,
     service: service::csam::SearchMedia,
@@ -44,8 +46,8 @@ pub struct CsamModel {
 
 impl CsamModel {
     pub fn new(
-        searchbar: AsyncController<SearchBarModel>,
-        toolbar: AsyncController<ToolbarModel>,
+        searchbar: Controller<SearchBarModel>,
+        toolbar: Controller<ToolbarModel>,
         statusbar: Controller<StatusbarModel>,
         media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
         media_details: Controller<MediaDetailsModel>,
@@ -56,7 +58,7 @@ impl CsamModel {
             toolbar,
             statusbar,
             media_list_wrapper,
-            media_list_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
+            media_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
             media_details,
             thumbnail_size: models::media::THUMBNAIL_SIZE,
             service,
@@ -73,6 +75,10 @@ pub enum CsamInput {
     // Toolbar
     ZoomIn,
     ZoomOut,
+    HammingDistanceFilter(u32),
+    ImageFilter(bool),
+    VideoFilter(bool),
+    CSAMFilter(bool),
     SelectAllMedias(bool),
     SizeFilter0KB(bool),
     SizeFilter30KB(bool),
@@ -100,6 +106,7 @@ impl AsyncComponent for CsamModel {
     type CommandOutput = CsamCommandOutput;
 
     view! {
+        #[root]
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
             set_hexpand: true,
@@ -136,16 +143,18 @@ impl AsyncComponent for CsamModel {
                             set_hexpand: true,
                             set_vexpand: true,
                             set_resize_start_child: true,
-                            set_resize_end_child: true,
+                            set_resize_end_child: false,
                             set_shrink_start_child: false,
                             set_shrink_end_child: false,
+                            set_wide_handle: true,
                             set_margin_bottom: 5,
                             set_margin_end: 6,
                             set_margin_start: 6,
 
                             #[wrap(Some)]
                             set_start_child = &gtk::Frame {
-                                set_width_request: 960,
+                                set_width_request: 800,
+                                set_hexpand: true,
                                 set_vexpand: true,
                                 set_margin_end: 6,
 
@@ -169,7 +178,7 @@ impl AsyncComponent for CsamModel {
 
                             #[wrap(Some)]
                             set_end_child = &gtk::Frame {
-                                set_width_request: 320,
+                                set_width_request: 300,
                                 set_vexpand: true,
                                 set_margin_start: 6,
 
@@ -201,10 +210,15 @@ impl AsyncComponent for CsamModel {
         let toolbar_controller = ToolbarModel::builder()
             .launch_with_broker((), &toolbar::SELECT_BROKER)
             .forward(sender.input_sender(), |output| match output {
+                ToolbarOutput::SelectAll(is_selected) => CsamInput::SelectAllMedias(is_selected),
                 ToolbarOutput::ZoomIn => CsamInput::ZoomIn,
                 ToolbarOutput::ZoomOut => CsamInput::ZoomOut,
-                ToolbarOutput::SelectAll(is_selected) => CsamInput::SelectAllMedias(is_selected),
-                ToolbarOutput::SearchEntry(query) => CsamInput::SearchEntry(query),
+                ToolbarOutput::HammingDistanceFilter(value) => {
+                    CsamInput::HammingDistanceFilter(value)
+                }
+                ToolbarOutput::ImageFilter(is_active) => CsamInput::ImageFilter(is_active),
+                ToolbarOutput::VideoFilter(is_active) => CsamInput::VideoFilter(is_active),
+                ToolbarOutput::CSAMFilter(is_active) => CsamInput::CSAMFilter(is_active),
                 ToolbarOutput::SizeFilter0KB(is_active) => CsamInput::SizeFilter0KB(is_active),
                 ToolbarOutput::SizeFilter30KB(is_active) => CsamInput::SizeFilter30KB(is_active),
                 ToolbarOutput::SizeFilter100KB(is_active) => CsamInput::SizeFilter100KB(is_active),
@@ -212,6 +226,7 @@ impl AsyncComponent for CsamModel {
                 ToolbarOutput::SizeFilterGreater500KB(is_active) => {
                     CsamInput::SizeFilterA500KB(is_active)
                 }
+                ToolbarOutput::SearchEntry(query) => CsamInput::SearchEntry(query),
             });
 
         let statusbar_controller = StatusbarModel::builder().launch(()).detach();
@@ -226,12 +241,11 @@ impl AsyncComponent for CsamModel {
                 gtk::Widget::NONE,
             );
 
-        let media_details_controller =
-            MediaDetailsModel::builder()
-                .launch(())
-                .forward(sender.input_sender(), |output| match output {
-                    MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
-                });
+        let media_details_controller = MediaDetailsModel::builder()
+            .launch(models::MediaDetail::default())
+            .forward(sender.input_sender(), |output| match output {
+                MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
+            });
 
         let service = service::csam::SearchMedia::new();
         let mut model = CsamModel::new(
@@ -243,7 +257,7 @@ impl AsyncComponent for CsamModel {
             service,
         );
 
-        let filter = model.media_list_filter.clone();
+        let filter = model.media_filter.clone();
         model.media_list_wrapper.add_filter(on_filter(filter));
         model.media_list_wrapper.set_filter_status(0, false);
 
@@ -261,12 +275,6 @@ impl AsyncComponent for CsamModel {
         _root: &Self::Root,
     ) {
         match message {
-            CsamInput::ZoomIn => {
-                self.apply_media_zoom(true).await;
-            }
-            CsamInput::ZoomOut => {
-                self.apply_media_zoom(false).await;
-            }
             CsamInput::StartSearch(path) => {
                 self.media_list_wrapper.clear();
                 self.statusbar.emit(StatusbarInput::Reset);
@@ -275,40 +283,62 @@ impl AsyncComponent for CsamModel {
             CsamInput::StopSearch => {
                 self.service.stop();
             }
-            CsamInput::SelectAllMedias(is_selected) => {
-                self.on_select_all_medias(is_selected).await;
-            }
-            CsamInput::SearchEntry(query) => {
-                self.media_list_filter.borrow_mut().search_entry = Some(query);
-                self.apply_media_filters().await;
-            }
-            CsamInput::SizeFilter0KB(is_active) => {
-                self.media_list_filter.borrow_mut().size_0 = is_active;
-                self.apply_media_filters().await;
-            }
-            CsamInput::SizeFilter30KB(is_active) => {
-                self.media_list_filter.borrow_mut().size_30 = is_active;
-                self.apply_media_filters().await;
-            }
-            CsamInput::SizeFilter100KB(is_active) => {
-                self.media_list_filter.borrow_mut().size_100 = is_active;
-                self.apply_media_filters().await;
-            }
-            CsamInput::SizeFilter500KB(is_active) => {
-                self.media_list_filter.borrow_mut().size_500 = is_active;
-                self.apply_media_filters().await;
-            }
-            CsamInput::SizeFilterA500KB(is_active) => {
-                self.media_list_filter.borrow_mut().size_greater_500 = is_active;
-                self.apply_media_filters().await;
-            }
             CsamInput::MediaListSelect(position) => {
-                if let Some(item) = self.media_list_wrapper.get(position) {
+                if let Some(item) = self.media_list_wrapper.get_visible(position) {
                     let media = &item.borrow().media;
                     self.media_details.emit(MediaDetailsInput::ShowMedia(
                         models::MediaDetail::from(media),
                     ));
                 }
+            }
+            CsamInput::SelectAllMedias(is_selected) => {
+                self.on_select_all_medias(is_selected).await;
+            }
+            CsamInput::ZoomIn => {
+                self.apply_media_zoom(true).await;
+            }
+            CsamInput::ZoomOut => {
+                self.apply_media_zoom(false).await;
+            }
+            CsamInput::HammingDistanceFilter(value) => {
+                self.media_filter.borrow_mut().hamming_distance = value;
+                self.apply_media_filters().await;
+            }
+            CsamInput::CSAMFilter(is_active) => {
+                self.media_filter.borrow_mut().is_csam = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::ImageFilter(is_active) => {
+                self.media_filter.borrow_mut().is_image = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::VideoFilter(is_active) => {
+                self.media_filter.borrow_mut().is_video = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SizeFilter0KB(is_active) => {
+                self.media_filter.borrow_mut().is_size_0 = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SizeFilter30KB(is_active) => {
+                self.media_filter.borrow_mut().is_size_30 = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SizeFilter100KB(is_active) => {
+                self.media_filter.borrow_mut().is_size_100 = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SizeFilter500KB(is_active) => {
+                self.media_filter.borrow_mut().is_size_500 = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SizeFilterA500KB(is_active) => {
+                self.media_filter.borrow_mut().is_size_greater_500 = is_active;
+                self.apply_media_filters().await;
+            }
+            CsamInput::SearchEntry(query) => {
+                self.media_filter.borrow_mut().search_entry = Some(query);
+                self.apply_media_filters().await;
             }
             CsamInput::Notify(msg, timeout) => {
                 let toast = adw::Toast::builder().title(msg).timeout(timeout).build();
@@ -349,7 +379,7 @@ impl AsyncComponent for CsamModel {
                         }
 
                         if item.is_csam() {
-                            self.statusbar.emit(StatusbarInput::SuspectsFound(1));
+                            self.statusbar.emit(StatusbarInput::CSAMFound(1));
                         }
                     }
 
@@ -447,24 +477,49 @@ fn on_filter(filter: Rc<RefCell<models::MediaFilter>>) -> impl Fn(&MediaItem) ->
     move |item: &MediaItem| -> bool {
         let filter = filter.borrow();
         let media = &item.media;
-        let mut is_visible = true;
 
+        // filter by keyword
         if let Some(query) = &filter.search_entry {
-            is_visible = media.name.to_lowercase().contains(&query.to_lowercase());
+            if !media.name.to_lowercase().contains(&query.to_lowercase()) {
+                return false;
+            }
         }
 
-        if !filter.size_0 && media.size == 0 {
-            is_visible = false;
-        } else if !filter.size_30 && (media.size > 0 && media.size <= 30) {
-            is_visible = false;
-        } else if !filter.size_100 && (media.size > 30 && media.size <= 100) {
-            is_visible = false;
-        } else if !filter.size_500 && (media.size > 100 && media.size <= 500) {
-            is_visible = false;
-        } else if !filter.size_greater_500 && media.size > 500 {
-            is_visible = false;
+        // filter by media type
+        if !filter.is_image && media.media_type == models::MediaType::Image {
+            return false;
+        }
+        if !filter.is_video && media.media_type == models::MediaType::Video {
+            return false;
         }
 
-        is_visible
+        // filter by CSAM file
+        if filter.is_csam && media.match_type.is_empty() {
+            return false;
+        }
+
+        // filter by hamming distance
+        if filter.is_csam && (media.hamming > filter.hamming_distance) {
+            return false;
+        }
+
+        // filter by file size
+        if !filter.is_size_0 && media.size == 0 {
+            return false;
+        }
+        if !filter.is_size_30 && (media.size > 0 && media.size <= 30) {
+            return false;
+        }
+        if !filter.is_size_100 && (media.size > 30 && media.size <= 100) {
+            return false;
+        }
+        if !filter.is_size_500 && (media.size > 100 && media.size <= 500) {
+            return false;
+        }
+        if !filter.is_size_greater_500 && media.size > 500 {
+            return false;
+        }
+
+        true
     }
 }

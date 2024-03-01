@@ -10,18 +10,21 @@ csam = CSAM
 face-search = Reconocimiento facial
 csam-db = Base de datos CSAM
 
-
 # Toolbars
 zoom-out = Disminuir el zoom
 zoom-in = Aumentar el zoom
 deselect-all = Deseleccionar todo
 select-all = Marca todas
+hamming = Hamming
 filter = Filtrar
 size = Tamaño
 greater-than-500-kb = Más de 500 KB
 all-sizes = Ver todo
 clean-filters = Filtros limpios
 selected-count = Seleccionado:
+media-type = Tipo de Medio
+image = Imagen
+video = Video
 
 # Preferences
 preferences = Preferencias
@@ -59,15 +62,14 @@ open = Abierto
 cancel = Cancelar
 
 # Media Details
-media-name = Nambre:
-media-path = Camino:
-media-type = Tipo:
-media-size = Tamaño:
-media-last-modified = Última modificación:
-media-hash = Hash:
-media-phash = Hash perceptual:
-media-match-type = Tipo de match:
-media-hamming-distance = Distancia de hamming:
+name = Nambre
+path = Camino
+type = Tipo
+last-modified = Última modificación
+hash = MD5
+phash = Hash perceptual
+match-type = Tipo de match
+hamming-distance = Distancia de hamming
 
 # Errors
 generic-error = Ocurrió un error:

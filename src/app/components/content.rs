@@ -4,9 +4,14 @@ use crate::app::{
 };
 
 use relm4::{
-    component::{AsyncComponent, AsyncComponentParts},
-    gtk::prelude::*,
-    prelude::*,
+    component::{
+        AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController,
+        SimpleAsyncComponent,
+    },
+    gtk::{
+        self,
+        prelude::{BoxExt, OrientableExt, WidgetExt},
+    },
     AsyncComponentSender,
 };
 
@@ -39,11 +44,10 @@ pub enum ContentInput {
 }
 
 #[relm4::component(pub async)]
-impl AsyncComponent for ContentModel {
+impl SimpleAsyncComponent for ContentModel {
     type Init = ();
     type Input = ContentInput;
     type Output = ();
-    type CommandOutput = ();
 
     view! {
         #[root]
@@ -107,19 +111,11 @@ impl AsyncComponent for ContentModel {
         AsyncComponentParts { model, widgets }
     }
 
-    async fn update_with_view(
-        &mut self,
-        widgets: &mut Self::Widgets,
-        message: Self::Input,
-        sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
+    async fn update(&mut self, message: Self::Input, _sender: AsyncComponentSender<Self>) {
         match message {
             ContentInput::SelectSidebarOption(sidebar_option) => {
                 self.sidebar_option.replace(sidebar_option);
             }
         }
-
-        self.update_view(widgets, sender);
     }
 }
