@@ -124,11 +124,7 @@ impl RelmGridItem for MediaItem {
             picture.set_filename(Some(self.media.path.as_str()));
         }
 
-        if self.media.is_csam() {
-            root.set_css_classes(&["media-highlight"]);
-        } else {
-            root.remove_css_class("media-highlight");
-        }
+        root.set_class_active("media-highlight", self.media.is_csam())
 
         // *self.active.guard() = self.media.is_selected;
     }
