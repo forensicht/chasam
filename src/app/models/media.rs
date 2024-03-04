@@ -6,7 +6,6 @@ use chrono::prelude::*;
 pub const ZOOM_SIZE: i32 = 20;
 pub const ZOOM_LIMIT: i32 = 240;
 pub const THUMBNAIL_SIZE: i32 = 160;
-pub const HAMMING_DISTANCE: u32 = 20;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum MediaType {
@@ -62,6 +61,19 @@ impl From<&core::csam::Media> for Media {
             thumbnail_size: THUMBNAIL_SIZE,
         }
     }
+}
+
+impl Media {
+    pub fn is_csam(&self) -> bool {
+        !self.match_type.is_empty()
+    }
+
+    // pub fn is_image(&self) -> bool {
+    //     match self.media_type {
+    //         MediaType::Image => true,
+    //         _ => false,
+    //     }
+    // }
 }
 
 #[derive(Debug, Default)]
@@ -133,7 +145,7 @@ impl Default for MediaFilter {
             is_size_100: true,
             is_size_500: true,
             is_size_greater_500: true,
-            hamming_distance: HAMMING_DISTANCE,
+            hamming_distance: core::csam::MAX_DISTANCE_HAMMING,
         }
     }
 }

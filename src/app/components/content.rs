@@ -2,6 +2,7 @@ use crate::app::{
     components::{csam::CsamModel, csam_db::CsamDBModel, face::FaceModel},
     models::SidebarOption,
 };
+use core_chasam as service;
 
 use relm4::{
     component::{
@@ -45,7 +46,7 @@ pub enum ContentInput {
 
 #[relm4::component(pub async)]
 impl SimpleAsyncComponent for ContentModel {
-    type Init = ();
+    type Init = service::csam::SearchMedia;
     type Input = ContentInput;
     type Output = ();
 
@@ -92,11 +93,11 @@ impl SimpleAsyncComponent for ContentModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        service: Self::Init,
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let csam_controller = CsamModel::builder().launch(()).detach();
+        let csam_controller = CsamModel::builder().launch(service).detach();
         let face_controller = FaceModel::builder().launch(()).detach();
         let csam_db_controller = CsamDBModel::builder().launch(()).detach();
 

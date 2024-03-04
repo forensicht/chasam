@@ -1,4 +1,5 @@
 use super::media::Media;
+use super::Repository;
 use crate::utils;
 
 use std::path::{Path, PathBuf};
@@ -17,18 +18,21 @@ pub enum StateMedia {
 
 pub struct SearchMedia {
     stopped: Arc<RwLock<bool>>,
+    repository: Arc<dyn Repository>,
 }
 
 impl SearchMedia {
-    pub fn new() -> Self {
+    pub fn new(repository: Arc<dyn Repository>) -> Self {
         SearchMedia {
             stopped: Arc::new(RwLock::new(false)),
+            repository,
         }
     }
 
     pub fn search(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
         *self.stopped.write().unwrap() = false;
         let stopped = self.stopped.clone();
+        let repository = self.repository.clone();
         let state_sender = state_sender.clone();
 
         std::thread::spawn(move || {
@@ -54,6 +58,7 @@ impl SearchMedia {
 
                 let entry = entry.clone();
                 let c_stopped = stopped.clone();
+                let c_repository = repository.clone();
                 let c_media_sender = media_sender.clone();
                 let c_state_sender = state_sender.clone();
 
@@ -62,7 +67,7 @@ impl SearchMedia {
                         return;
                     }
 
-                    match Media::new(entry) {
+                    match Media::new(entry, c_repository) {
                         Ok(media) => {
                             c_media_sender
                                 .blocking_send(media)

@@ -11,6 +11,7 @@ use crate::app::components::{
 };
 use crate::fl;
 
+use anyhow::{Context, Result};
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
@@ -174,7 +175,13 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        relm4::tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let service = match load_database().await {
+            Ok(service) => service,
+            Err(err) => {
+                tracing::error!("{}", err);
+                std::process::exit(1);
+            }
+        };
 
         let preferences: &str = fl!("preferences");
         let about: &str = fl!("about");
@@ -189,7 +196,7 @@ impl AsyncComponent for App {
             },
         );
 
-        let content_controller = ContentModel::builder().launch(()).detach();
+        let content_controller = ContentModel::builder().launch(service).detach();
 
         let mut model = App::new(sidebar_controller, content_controller, None, None);
 
@@ -261,4 +268,20 @@ impl AsyncComponent for App {
 
         self.update_view(widgets, sender);
     }
+}
+
+async fn load_database() -> Result<core_chasam::csam::SearchMedia> {
+    use core_chasam::{
+        csam::{self, SearchMedia},
+        repository::CsamRepository,
+    };
+
+    relm4::tokio::task::spawn_blocking(move || {
+        let repository = std::sync::Arc::new(CsamRepository::new());
+        csam::load_csam_database(repository.clone())
+            .with_context(|| "Could not load csam database.")?;
+        let service = SearchMedia::new(repository.clone());
+        Ok(service)
+    })
+    .await?
 }

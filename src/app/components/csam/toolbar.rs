@@ -69,7 +69,7 @@ impl Component for ToolbarModel {
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
-                set_width_request: 388,
+                set_width_request: 450,
                 set_hexpand: false,
                 set_halign: gtk::Align::Start,
 
@@ -151,7 +151,7 @@ impl Component for ToolbarModel {
 
                     #[name(label_hamming)]
                     gtk::Label {
-                        set_label: "20",
+                        set_label: "10",
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Center,
                         set_margin_start: 6,
@@ -166,7 +166,7 @@ impl Component for ToolbarModel {
                         set_draw_value: false,
                         set_digits: 0,
                         set_width_request: 100,
-                        set_adjustment: &gtk::Adjustment::new(20f64, 1f64, 20f64, 1f64, 20f64, 0f64),
+                        set_adjustment: &gtk::Adjustment::new(10f64, 1f64, 10f64, 1f64, 10f64, 0f64),
                         connect_value_changed[sender, label_hamming] => move |scale| {
                             let value: u32 = scale.value().round() as u32;
                             label_hamming.set_label(&value.to_string());

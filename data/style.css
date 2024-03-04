@@ -38,6 +38,13 @@ gridview child:focus {
     border-radius: 5px;
 }
 
+.media-highlight {
+    border: solid #ff0000 1px;
+    border-radius: 5px;
+    margin: 0;
+    padding: 2px;
+}
+
 .border-spacing {
     border-spacing: 0;
 }

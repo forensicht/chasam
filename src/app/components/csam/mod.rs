@@ -100,7 +100,7 @@ pub enum CsamCommandOutput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for CsamModel {
-    type Init = ();
+    type Init = service::csam::SearchMedia;
     type Input = CsamInput;
     type Output = ();
     type CommandOutput = CsamCommandOutput;
@@ -194,7 +194,7 @@ impl AsyncComponent for CsamModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        service: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -247,7 +247,7 @@ impl AsyncComponent for CsamModel {
                 MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
             });
 
-        let service = service::csam::SearchMedia::new();
+        // let service = service::csam::SearchMedia::new();
         let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
