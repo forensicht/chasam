@@ -3,14 +3,10 @@ use crate::fl;
 use std::path::PathBuf;
 
 use relm4::{
+    component::{Component, ComponentParts, Controller},
+    gtk::prelude::{BoxExt, ButtonExt, EditableExt, EntryExt, OrientableExt, WidgetExt},
     prelude::*,
-    gtk::prelude::*,
-    component::{
-        AsyncComponent, 
-        AsyncComponentParts, 
-        AsyncComponentSender, 
-        Controller,
-    },
+    ComponentSender,
 };
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_name;
@@ -24,6 +20,7 @@ pub struct SearchBarModel {
 #[derive(Debug)]
 pub enum SearchBarInput {
     StartSearch,
+    StopSearch,
     SearchCompleted,
     OpenFileRequest,
     OpenFileResponse(PathBuf),
@@ -33,18 +30,20 @@ pub enum SearchBarInput {
 #[derive(Debug)]
 pub enum SearchBarOutput {
     StartSearch(PathBuf),
+    StopSearch,
     Notify(String, u32),
 }
 
-#[relm4::component(pub async)]
-impl AsyncComponent for SearchBarModel {
+#[relm4::component(pub)]
+impl Component for SearchBarModel {
     type Init = ();
     type Input = SearchBarInput;
     type Output = SearchBarOutput;
     type CommandOutput = ();
 
     view! {
-       gtk::Box {
+        #[root]
+        gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
             set_hexpand: true,
             set_spacing: 6,
@@ -68,19 +67,29 @@ impl AsyncComponent for SearchBarModel {
 
             append = &gtk::Button {
                 #[watch]
-                set_sensitive: model.stopped,
+                set_visible: model.stopped,
                 set_icon_name: icon_name::LOUPE_LARGE,
                 set_tooltip_text: Some(fl!("search")),
+                set_css_classes: &["suggested-action"],
                 connect_clicked => SearchBarInput::StartSearch,
+            },
+
+            append = &gtk::Button {
+                #[watch]
+                set_visible: !model.stopped,
+                set_icon_name: icon_name::STOP_LARGE,
+                set_tooltip_text: Some(fl!("stop")),
+                set_css_classes: &["destructive-action"],
+                connect_clicked => SearchBarInput::StopSearch,
             },
         }
     }
 
-    async fn init(
+    fn init(
         _init: Self::Init,
         root: Self::Root,
-        sender: AsyncComponentSender<Self>,
-    ) ->  AsyncComponentParts<Self> {
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let open_dialog_settings = OpenDialogSettings {
             folder_mode: true,
             accept_label: String::from(fl!("open")),
@@ -99,32 +108,36 @@ impl AsyncComponent for SearchBarModel {
             });
 
         let model = SearchBarModel {
-            open_dialog, 
+            open_dialog,
             stopped: true,
             file_path: PathBuf::default(),
         };
-        
+
         let widgets = view_output!();
 
-        AsyncComponentParts { model, widgets }
+        ComponentParts { model, widgets }
     }
 
-    async fn update(
-        &mut self,
-        message: Self::Input,
-        sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
-    ) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             SearchBarInput::StartSearch => {
                 if self.file_path.exists() {
                     self.stopped = false;
                     let file_path = self.file_path.clone();
-                    sender.output(SearchBarOutput::StartSearch(file_path)).unwrap_or_default();
+                    sender
+                        .output(SearchBarOutput::StartSearch(file_path))
+                        .unwrap_or_default();
                 } else {
                     let msg = fl!("invalid-directory").to_string();
-                    sender.output(SearchBarOutput::Notify(msg, 3)).unwrap_or_default();
+                    sender
+                        .output(SearchBarOutput::Notify(msg, 3))
+                        .unwrap_or_default();
                 }
+            }
+            SearchBarInput::StopSearch => {
+                sender
+                    .output(SearchBarOutput::StopSearch)
+                    .unwrap_or_default();
             }
             SearchBarInput::SearchCompleted => {
                 self.stopped = true;

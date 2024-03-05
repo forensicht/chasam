@@ -2,9 +2,9 @@
 
 mod app;
 
+use anyhow::Result;
 use app::config::{info::APP_ID, setup};
 use relm4::RelmApp;
-use anyhow::Result;
 
 use app::App;
 

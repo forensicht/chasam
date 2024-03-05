@@ -1,61 +1,49 @@
-pub mod config;
-pub mod models;
 pub mod components;
+pub mod config;
+pub mod factories;
+pub mod models;
 
-use std::path::PathBuf;
-
-use crate::fl;
 use crate::app::components::{
     about_dialog::AboutDialog,
-    searchbar::{
-        SearchBarModel,
-        SearchBarInput,
-        SearchBarOutput,
-    },
+    content::{ContentInput, ContentModel},
     preferences::PreferencesModel,
+    sidebar::{SidebarModel, SidebarOutput},
 };
+use crate::fl;
 
+use anyhow::{Context, Result};
 use relm4::{
-    prelude::*,
-    gtk::prelude::*,
-    gtk::glib,
+    actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
-    adw::Toast,
-    component::{
-        AsyncComponent,
-        AsyncComponentParts,
-        AsyncController,
-        AsyncComponentController,
+    component::{AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController},
+    gtk::glib,
+    gtk::{
+        self,
+        prelude::{ApplicationExt, BoxExt, Cast, GtkWindowExt, OrientableExt, WidgetExt},
     },
-    view,
-    AsyncComponentSender,
     loading_widgets::LoadingWidgets,
-    actions::{
-        ActionGroupName,
-        RelmAction,
-        RelmActionGroup,
-    },
-    ComponentBuilder,
-    ComponentController,
-    Controller,
-    main_adw_application,
+    main_adw_application, view, AsyncComponentSender, ComponentBuilder, ComponentController,
+    Controller, RelmWidgetExt,
 };
 use relm4_icons::icon_name;
 
 pub struct App {
-    searchbar: AsyncController<SearchBarModel>,
+    sidebar: AsyncController<SidebarModel>,
+    content: AsyncController<ContentModel>,
     preferences: Option<AsyncController<PreferencesModel>>,
     about_dialog: Option<Controller<AboutDialog>>,
 }
 
 impl App {
     pub fn new(
-        searchbar: AsyncController<SearchBarModel>,
+        sidebar: AsyncController<SidebarModel>,
+        content: AsyncController<ContentModel>,
         preferences: Option<AsyncController<PreferencesModel>>,
         about_dialog: Option<Controller<AboutDialog>>,
     ) -> Self {
         Self {
-            searchbar,
+            sidebar,
+            content,
             preferences,
             about_dialog,
         }
@@ -64,9 +52,7 @@ impl App {
 
 #[derive(Debug)]
 pub enum AppInput {
-    StartSearch(PathBuf),
-    SearchCompleted(usize),
-    Notify(String, u32),
+    SelectedSidebarOption(models::SidebarOption),
     Quit,
 }
 
@@ -95,6 +81,7 @@ impl AsyncComponent for App {
     view! {
         #[root]
         main_window = adw::ApplicationWindow {
+            set_size_request: (800, 640),
             set_default_size: (1280, 968),
             set_resizable: true,
 
@@ -103,56 +90,37 @@ impl AsyncComponent for App {
                 glib::Propagation::Stop
             },
 
-            #[name = "content"]
             gtk::Box {
-                set_orientation: gtk::Orientation::Vertical, 
+                set_orientation: gtk::Orientation::Horizontal,
 
-                #[name = "content_header"]
-                append = &adw::HeaderBar {
-                    set_hexpand: true,
-                    set_css_classes: &["flat"],
-                    set_show_start_title_buttons: false,
-                    set_show_end_title_buttons: true,
-
-                    pack_end = &gtk::MenuButton {
-                        set_tooltip: fl!("menu"),
-                        set_valign: gtk::Align::Center,
-                        set_css_classes: &["flat"],
-                        set_icon_name: icon_name::MENU,
-                        set_menu_model: Some(&primary_menu),
-                    },
-
-                    #[wrap(Some)]
-                    set_title_widget = model.searchbar.widget(),
-                },
-
-                #[name(overlay)]
-                adw::ToastOverlay {
-                    #[wrap(Some)]
-                    set_child = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_hexpand: true,
-                        set_vexpand: true,
-
-                        // append: model.content.widget(),
-                    },
-                },
-
+                #[name(sidebar)]
                 gtk::Box {
-                    set_orientation: gtk::Orientation::Horizontal,
-                    set_hexpand: true,
-                    set_margin_start: 5,
-                    set_margin_end: 5,
-                    set_margin_bottom: 5,
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_width_request: 50,
 
-                    gtk::Label {
-                        #[watch]
-                        set_label: "statusbar",
-                        set_margin_start: 6,
-                        set_margin_end: 12,
-                        set_halign: gtk::Align::Start,
+                    gtk::CenterBox {
+                        set_visible: true,
+                        set_margin_top: 6,
+                        set_margin_bottom: 6,
+
+                        #[wrap(Some)]
+                        set_center_widget = &gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+
+                            gtk::MenuButton {
+                                set_valign: gtk::Align::Center,
+                                set_css_classes: &["flat"],
+                                set_icon_name: icon_name::MENU,
+                                set_tooltip: fl!("menu"),
+                                set_menu_model: Some(&primary_menu),
+                            },
+                        },
                     },
+
+                    append: model.sidebar.widget(),
                 },
+
+                append: model.content.widget(),
             }
         }
     }
@@ -207,7 +175,13 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        relm4::tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let service = match load_database().await {
+            Ok(service) => service,
+            Err(err) => {
+                tracing::error!("{}", err);
+                std::process::exit(1);
+            }
+        };
 
         let preferences: &str = fl!("preferences");
         let about: &str = fl!("about");
@@ -215,18 +189,16 @@ impl AsyncComponent for App {
 
         let mut actions = RelmActionGroup::<WindowActionGroup>::new();
 
-        let searchbar_controller = SearchBarModel::builder()
-            .launch(())
-            .forward(sender.input_sender(), |output| match output {
-                SearchBarOutput::StartSearch(path) => AppInput::StartSearch(path),
-                SearchBarOutput::Notify(msg, timeout) => AppInput::Notify(msg, timeout),
-            });
-
-        let mut model = App::new(
-            searchbar_controller, 
-            None, 
-            None,
+        let sidebar_controller = SidebarModel::builder().launch(()).forward(
+            sender.input_sender(),
+            |output| match output {
+                SidebarOutput::SelectedOption(option) => AppInput::SelectedSidebarOption(option),
+            },
         );
+
+        let content_controller = ContentModel::builder().launch(service).detach();
+
+        let mut model = App::new(sidebar_controller, content_controller, None, None);
 
         let widgets = view_output!();
 
@@ -259,7 +231,10 @@ impl AsyncComponent for App {
         let quit_action = {
             let sender = sender.clone();
             RelmAction::<QuitAction>::new_stateless(move |_| {
-                sender.input_sender().send(AppInput::Quit).unwrap_or_default();
+                sender
+                    .input_sender()
+                    .send(AppInput::Quit)
+                    .unwrap_or_default();
             })
         };
 
@@ -267,10 +242,9 @@ impl AsyncComponent for App {
         actions.add_action(about_action);
         actions.add_action(quit_action);
 
-        widgets.main_window.insert_action_group(
-            WindowActionGroup::NAME,
-            Some(&actions.into_action_group()),
-        );
+        widgets
+            .main_window
+            .insert_action_group(WindowActionGroup::NAME, Some(&actions.into_action_group()));
 
         AsyncComponentParts { model, widgets }
     }
@@ -283,14 +257,9 @@ impl AsyncComponent for App {
         _root: &Self::Root,
     ) {
         match message {
-            AppInput::StartSearch(path) => {
-                println!("{}", path.display());
-            }
-            AppInput::SearchCompleted(_count) => {
-                self.searchbar.emit(SearchBarInput::SearchCompleted);
-            }
-            AppInput::Notify(msg, timeout) => {
-                widgets.overlay.add_toast(toast(msg, timeout));
+            AppInput::SelectedSidebarOption(sidebar_option) => {
+                self.content
+                    .emit(ContentInput::SelectSidebarOption(sidebar_option));
             }
             AppInput::Quit => {
                 main_adw_application().quit();
@@ -301,9 +270,18 @@ impl AsyncComponent for App {
     }
 }
 
-pub fn toast<T: ToString>(title: T, timeout: u32) -> Toast {
-    Toast::builder()
-        .title(title.to_string().as_str())
-        .timeout(timeout)
-        .build()
+async fn load_database() -> Result<core_chasam::csam::SearchMedia> {
+    use core_chasam::{
+        csam::{self, SearchMedia},
+        repository::CsamRepository,
+    };
+
+    relm4::tokio::task::spawn_blocking(move || {
+        let repository = std::sync::Arc::new(CsamRepository::new());
+        csam::load_csam_database(repository.clone())
+            .with_context(|| "Could not load csam database.")?;
+        let service = SearchMedia::new(repository.clone());
+        Ok(service)
+    })
+    .await?
 }

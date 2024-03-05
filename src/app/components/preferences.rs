@@ -1,20 +1,17 @@
+use crate::app::{config::settings, models};
 use crate::fl;
-use crate::app::{
-    models,
-    config::settings,
-};
 
-use std::str::FromStr;
 use relm4::{
-    gtk,
     adw,
-    adw::prelude::*,
-    component::{
-        AsyncComponent, 
-        AsyncComponentParts,
+    adw::prelude::{
+        ActionRowExt, AdwWindowExt, BoxExt, CheckButtonExt, ComboRowExt, GtkWindowExt, IsA,
+        MessageDialogExt, OrientableExt, PreferencesGroupExt, PreferencesPageExt,
+        PreferencesRowExt, WidgetExt,
     },
-    AsyncComponentSender,
+    component::{AsyncComponent, AsyncComponentParts},
+    gtk, AsyncComponentSender,
 };
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct PreferencesModel {
@@ -35,6 +32,7 @@ impl AsyncComponent for PreferencesModel {
     type CommandOutput = ();
 
     view! {
+        #[root]
         adw::PreferencesWindow {
             set_title: Some(fl!("preferences")),
             set_hide_on_close: true,
@@ -102,7 +100,7 @@ impl AsyncComponent for PreferencesModel {
                                     },
                                     add_suffix = &gtk::Box {
                                         set_halign: gtk::Align::Center,
-										set_valign: gtk::Align::Center,
+                                        set_valign: gtk::Align::Center,
                                         #[name = "chk_language"]
                                         append = &gtk::CheckButton {
                                             set_active: match model.preference.language {
@@ -135,7 +133,7 @@ impl AsyncComponent for PreferencesModel {
                                     },
                                     add_suffix = &gtk::Box {
                                         set_halign: gtk::Align::Center,
-										set_valign: gtk::Align::Center,
+                                        set_valign: gtk::Align::Center,
                                         append = &gtk::CheckButton {
                                             set_group: Some(&chk_language),
                                             set_active: match model.preference.language {
@@ -168,7 +166,7 @@ impl AsyncComponent for PreferencesModel {
                                     },
                                     add_suffix = &gtk::Box {
                                         set_halign: gtk::Align::Center,
-										set_valign: gtk::Align::Center,
+                                        set_valign: gtk::Align::Center,
                                         append = &gtk::CheckButton {
                                             set_group: Some(&chk_language),
                                             set_active: match model.preference.language {
@@ -207,9 +205,7 @@ impl AsyncComponent for PreferencesModel {
             preference = models::Preference::new(color_scheme, language);
         }
 
-        let model = PreferencesModel {
-            preference,
-        };
+        let model = PreferencesModel { preference };
 
         let widgets = view_output!();
 
@@ -246,8 +242,8 @@ impl AsyncComponent for PreferencesModel {
 impl PreferencesModel {
     fn show_dialog(&self, root: &impl IsA<gtk::Window>) {
         let dialog = adw::MessageDialog::new(
-            Some(root), 
-            Some(fl!("preferences")), 
+            Some(root),
+            Some(fl!("preferences")),
             Some(fl!("message-dialog")),
         );
         dialog.set_transient_for(Some(root));

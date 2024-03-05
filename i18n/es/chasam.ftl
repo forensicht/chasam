@@ -5,6 +5,27 @@ menu = Menu
 about = Acerca de
 quit = Salir
 
+# Sidebar
+csam = CSAM
+face-search = Reconocimiento facial
+csam-db = Base de datos CSAM
+
+# Toolbars
+zoom-out = Disminuir el zoom
+zoom-in = Aumentar el zoom
+deselect-all = Deseleccionar todo
+select-all = Marca todas
+hamming = Hamming
+filter = Filtrar
+size = Tamaño
+greater-than-500-kb = Más de 500 KB
+all-sizes = Ver todo
+clean-filters = Filtros limpios
+selected-count = Seleccionado:
+media-type = Tipo de Medio
+image = Imagen
+video = Video
+
 # Preferences
 preferences = Preferencias
 appearance = Apariencia
@@ -24,13 +45,33 @@ comments = Aplicación que busca contenido CSAM en imágenes y videos.
 
 # Searchbar
 search = Buscar
+stop = Detener
 directory = Directorio
 select-directory = Seleccionar directorio
+
+# Statusbar
+processed-files = Archivos procesados:
+out-of = de
+calculating = calculador
+images = Imágenes
+videos = Vídeos
+suspects-files = Archivos sospechosos
 
 # Content
 open = Abierto
 cancel = Cancelar
 
+# Media Details
+name = Nambre
+path = Camino
+type = Tipo
+last-modified = Última modificación
+hash = MD5
+phash = Hash perceptual
+match-type = Tipo de match
+hamming-distance = Distancia de hamming
+
 # Errors
 generic-error = Ocurrió un error:
 invalid-directory = ¡Directorio invalido!
+open-media-error = No se pudieron abrir los medios

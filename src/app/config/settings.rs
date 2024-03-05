@@ -1,11 +1,11 @@
+use anyhow::{Context, Result};
+use i18n_embed::unic_langid::LanguageIdentifier;
+use relm4::adw;
+use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::{self, File};
 use std::io::Write;
-use std::env;
-use i18n_embed::unic_langid::LanguageIdentifier;
-use serde::{Deserialize, Serialize};
 use toml;
-use anyhow::{Context, Result};
-use relm4::adw;
 
 use super::localization;
 use crate::app::models::{ColorScheme, Preference};
@@ -28,17 +28,17 @@ pub(crate) fn init() -> Result<()> {
 
 pub(crate) fn get_settings() -> Result<SettingsToml> {
     let toml_path = env::current_dir()?.join("settings.toml");
-    let toml_str = fs::read_to_string(toml_path)
-        .context("Failed to read settings.toml")?;
-    let settings_toml: SettingsToml = toml::from_str(&toml_str)
-        .context("Failed to deserialize settings.toml")?;
+    let toml_str = fs::read_to_string(toml_path).context("Failed to read settings.toml")?;
+    let settings_toml: SettingsToml =
+        toml::from_str(&toml_str).context("Failed to deserialize settings.toml")?;
 
     Ok(settings_toml)
 }
 
 fn set_localization(language: String) -> Result<()> {
     let localizer = localization::localizer();
-    let requested_language: LanguageIdentifier = language.parse()
+    let requested_language: LanguageIdentifier = language
+        .parse()
         .context("Failed to parsing language identifier")?;
 
     if let Err(error) = localizer.select(&[requested_language]) {
@@ -71,8 +71,7 @@ pub(crate) async fn save_preferences(preference: &Preference) -> Result<()> {
         theme: preference.color_scheme,
         language: preference.language.to_string(),
     };
-    set_settings(&settings_toml)
-        .context("Failed to save preferences.")?;
+    set_settings(&settings_toml).context("Failed to save preferences.")?;
 
     Ok(())
 }

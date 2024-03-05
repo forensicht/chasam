@@ -2,12 +2,18 @@
 name = "chasam"
 version = "0.1.0"
 edition = "2021"
-authors = ["Tiago Martins <tiago.tsmweb@gmail.com>", "Hericson dos Santos <hericson.cipol@gmail.com>"]
+authors = [
+    "Tiago Martins <tiago.tsmweb@gmail.com>",
+    "Hericson dos Santos <hericson.cipol@gmail.com>",
+]
 license = "MPL 2.0"
 description = "Application that searches CSAM content in images and videos."
 homepage = "https://github.com/forensicht/chasam"
 repository = "https://github.com/forensicht/chasam/"
 readme = "README.md"
+
+[workspace]
+members = ["core"]
 
 [profile.release]
 strip = true
@@ -22,24 +28,18 @@ strum = "0.26.1"
 strum_macros = "0.26.1"
 tracing = "0.1.39"
 tracing-subscriber = "0.3.17"
-image = "0.24.7"
-imageproc = "0.23.0"
 anyhow = "1.0.75"
 num_cpus = "1.16.0"
 open = "5.0.1"
-ffmpeg-next = "6.1.0"
 toml = "0.8.8"
+chrono = "0.4.34"
+
+[dependencies.core_chasam]
+path = "core"
 
 [dependencies.tokio]
-version = "1.28"
-features = [
-    "rt",
-    "rt-multi-thread",
-    "fs",
-    "io-util",
-    "macros",
-    "time",
-]
+version = "1.36"
+features = ["time"]
 
 [dependencies.serde]
 version = "1.0"
@@ -53,12 +53,19 @@ features = ["debug-embed"]
 version = "0.14.1"
 features = ["fluent-system", "desktop-requester"]
 
+# [dependencies.relm4]
+# version = "0.7.0-rc.1"
+# features = ["macros", "libadwaita", "gnome_44"]
+
+# [dependencies.relm4-components]
+# version = "0.7.0-rc.1"
+
 [dependencies.relm4]
-version = "0.7.0-rc.1"
+git = "https://github.com/tsmweb/Relm4.git"
 features = ["macros", "libadwaita", "gnome_44"]
 
 [dependencies.relm4-components]
-version = "0.7.0-rc.1"
+git = "https://github.com/tsmweb/Relm4.git"
 
 [dependencies.relm4-icons]
 version = "0.7.0-alpha.2"
@@ -73,13 +80,13 @@ features = [
     "cameras",
     "play-large",
     "image",
-    "encode",
     "pencil-and-paper",
-    "eraser",
-    "funnel",
     "plus-large",
     "minus-large",
-    "file-manager"
+    "file-manager",
+    "stamp",
+    "parent",
+    "harddisk",
 ]
 
 [build-dependencies]

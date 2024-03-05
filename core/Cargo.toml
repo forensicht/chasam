@@ -1,0 +1,30 @@
+[package]
+name = "core_chasam"
+version = "0.1.0"
+edition = "2021"
+
+[profile.test]
+opt-level = 3
+
+[dependencies]
+anyhow = "1.0.75"
+walkdir = "2.4.0"
+threadpool = "1.8.1"
+num_cpus = "1.16.0"
+image = "0.24.7"
+imageproc = "0.23.0"
+ffmpeg-next = "6.1.0"
+chrono = "0.4.24"
+sha-1 = "0.10.1"
+md5 = "0.7.0"
+hex = "0.4.3"
+tracing = "0.1.39"
+bytes = "1.5.0"
+
+[dependencies.rust-embed]
+version = "8.2.0"
+features = ["debug-embed"]
+
+[dependencies.tokio]
+version = "1.36"
+features = ["rt", "rt-multi-thread", "sync", "fs", "io-util", "macros"]
