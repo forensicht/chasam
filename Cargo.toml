@@ -87,6 +87,7 @@ features = [
     "stamp",
     "parent",
     "harddisk",
+    "filter-dismiss-filled",
 ]
 
 [build-dependencies]

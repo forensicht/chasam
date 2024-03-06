@@ -1,5 +1,7 @@
 use crate::fl;
 
+use core_chasam::csam::MAX_DISTANCE_HAMMING;
+
 use relm4::{
     component::{Component, ComponentParts},
     gtk::prelude::{
@@ -151,7 +153,8 @@ impl Component for ToolbarModel {
 
                     #[name(label_hamming)]
                     gtk::Label {
-                        set_label: "10",
+                        set_width_request: 12,
+                        set_label: "20",
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Center,
                         set_margin_start: 6,
@@ -166,7 +169,7 @@ impl Component for ToolbarModel {
                         set_draw_value: false,
                         set_digits: 0,
                         set_width_request: 100,
-                        set_adjustment: &gtk::Adjustment::new(10f64, 1f64, 10f64, 1f64, 10f64, 0f64),
+                        set_adjustment: &gtk::Adjustment::new(20f64, 1f64, 20f64, 1f64, 20f64, 0f64),
                         connect_value_changed[sender, label_hamming] => move |scale| {
                             let value: u32 = scale.value().round() as u32;
                             label_hamming.set_label(&value.to_string());
@@ -183,7 +186,8 @@ impl Component for ToolbarModel {
                 set_spacing: 6,
 
                 append = &gtk::Button {
-                    set_label: fl!("clean-filters"),
+                    set_icon_name: icon_name::FILTER_DISMISS_FILLED,
+                    set_tooltip: fl!("clean-filters"),
                     add_css_class: "flat",
                     connect_clicked => ToolbarInput::CleanFilters,
                 },
@@ -522,6 +526,7 @@ impl Component for ToolbarModel {
                 widgets.chk_video.set_active(true);
                 widgets.chk_all_size.set_active(true);
                 widgets.search_entry.set_text("");
+                widgets.scale_hamming.set_value(MAX_DISTANCE_HAMMING as f64);
             }
             ToolbarInput::SelectedItem(is_selected) => {
                 if is_selected {

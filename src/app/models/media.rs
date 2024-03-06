@@ -110,11 +110,7 @@ impl From<&Media> for MediaDetail {
             hash: media.hash.clone(),
             phash: format!("{:X}", media.phash),
             match_type: media.match_type.clone(),
-            hamming: if media.hamming > 0 {
-                media.hamming.to_string()
-            } else {
-                String::new()
-            },
+            hamming: media.hamming.to_string(),
         }
     }
 }

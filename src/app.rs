@@ -6,6 +6,7 @@ pub mod models;
 use crate::app::components::{
     about_dialog::AboutDialog,
     content::{ContentInput, ContentModel},
+    csam::database::CsamDatabaseModel,
     preferences::PreferencesModel,
     sidebar::{SidebarModel, SidebarOutput},
 };
@@ -30,6 +31,7 @@ use relm4_icons::icon_name;
 pub struct App {
     sidebar: AsyncController<SidebarModel>,
     content: AsyncController<ContentModel>,
+    csam_database: Option<AsyncController<CsamDatabaseModel>>,
     preferences: Option<AsyncController<PreferencesModel>>,
     about_dialog: Option<Controller<AboutDialog>>,
 }
@@ -38,12 +40,14 @@ impl App {
     pub fn new(
         sidebar: AsyncController<SidebarModel>,
         content: AsyncController<ContentModel>,
+        csam_database: Option<AsyncController<CsamDatabaseModel>>,
         preferences: Option<AsyncController<PreferencesModel>>,
         about_dialog: Option<Controller<AboutDialog>>,
     ) -> Self {
         Self {
             sidebar,
             content,
+            csam_database,
             preferences,
             about_dialog,
         }
@@ -57,6 +61,7 @@ pub enum AppInput {
 }
 
 relm4::new_action_group!(pub(super) WindowActionGroup, "win");
+relm4::new_stateless_action!(CsamDatabaseAction, WindowActionGroup, "csam-database");
 relm4::new_stateless_action!(PreferencesAction, WindowActionGroup, "preferences");
 relm4::new_stateless_action!(AboutAction, WindowActionGroup, "about");
 relm4::new_stateless_action!(QuitAction, WindowActionGroup, "quit");
@@ -71,10 +76,13 @@ impl AsyncComponent for App {
     menu! {
         primary_menu: {
             section! {
+                csam_database => CsamDatabaseAction,
+            },
+            section! {
                 preferences => PreferencesAction,
                 about => AboutAction,
                 quit => QuitAction,
-            }
+            },
         }
     }
 
@@ -183,6 +191,7 @@ impl AsyncComponent for App {
             }
         };
 
+        let csam_database: &str = fl!("csam-db");
         let preferences: &str = fl!("preferences");
         let about: &str = fl!("about");
         let quit: &str = fl!("quit");
@@ -198,21 +207,31 @@ impl AsyncComponent for App {
 
         let content_controller = ContentModel::builder().launch(service).detach();
 
-        let mut model = App::new(sidebar_controller, content_controller, None, None);
+        let mut model = App::new(sidebar_controller, content_controller, None, None, None);
 
         let widgets = view_output!();
+
+        let csam_database_controller = CsamDatabaseModel::builder()
+            .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
+            .detach();
+        model.csam_database = Some(csam_database_controller);
 
         let preferences_controller = PreferencesModel::builder()
             .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
             .detach();
-
         model.preferences = Some(preferences_controller);
 
         let about_dialog = ComponentBuilder::default()
             .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
             .detach();
-
         model.about_dialog = Some(about_dialog);
+
+        let csam_database_action = {
+            let window = model.csam_database.as_ref().unwrap().widget().clone();
+            RelmAction::<CsamDatabaseAction>::new_stateless(move |_| {
+                window.present();
+            })
+        };
 
         let preferences_action = {
             let window = model.preferences.as_ref().unwrap().widget().clone();
@@ -238,6 +257,7 @@ impl AsyncComponent for App {
             })
         };
 
+        actions.add_action(csam_database_action);
         actions.add_action(preferences_action);
         actions.add_action(about_action);
         actions.add_action(quit_action);

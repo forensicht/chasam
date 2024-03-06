@@ -126,14 +126,14 @@ impl Media {
             return None;
         }
         if let Some(distance) = Media::find_csam_by_phash(phash, repository.clone()) {
-            return Some(("phash".to_string(), distance));
+            return Some(("chHash".to_string(), distance));
         }
         None
     }
 
     fn find_csam_by_hash(hash: &str, repository: Arc<dyn Repository>) -> Option<String> {
         if repository.contains_hash(hash) {
-            return Some("hash".to_string());
+            return Some("MD5".to_string());
         }
         None
     }
