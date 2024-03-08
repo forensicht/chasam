@@ -1,4 +1,4 @@
-pub mod database_component;
+pub mod add_md5;
 pub mod media_details;
 pub mod statusbar;
 pub mod toolbar;

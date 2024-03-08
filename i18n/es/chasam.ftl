@@ -28,7 +28,6 @@ video = Video
 
 # Preferences
 preferences = Preferencias
-application = App
 appearance = Apariencia
 color-scheme = Esquema de Colores
 color-scheme-light = Light
@@ -42,10 +41,15 @@ message-dialog = Se debe reiniciar el programa para que los cambios surtan efect
 database = Base de datos
 database-path = Directorio de base de datos
 media-path = Directorio de medios
-entries = Entradas
 keywords = Palabras clave
-generate-hash = Genera hash MD5 y hash perceptivo.
-title-hash = Hash
+save-keywords = Guardar palabras clave
+generate-database = Generar base de datos
+add-hash = Agregar hash MD5
+add-phash = Agregar hash perceptivo
+add-keyword = Agregar palabra clave
+add-hash-description = Generar base de datos hash MD5.
+add-phash-description = Generar base de datos hash perceptual.
+add-keyword-description = Generar base de datos de palabras clave.
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>

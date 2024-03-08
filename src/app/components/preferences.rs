@@ -1,6 +1,8 @@
 use crate::app::{config::settings, models};
 use crate::fl;
 
+use crate::app::components::csam::add_md5::{AddMD5Model, AddMD5Output};
+
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -9,32 +11,40 @@ use relm4::{
     adw::prelude::{
         ActionRowExt, AdwWindowExt, BoxExt, ButtonExt, CheckButtonExt, ComboRowExt, EditableExt,
         EntryRowExt, GtkWindowExt, IsA, MessageDialogExt, OrientableExt, PreferencesGroupExt,
-        PreferencesPageExt, PreferencesRowExt, WidgetExt,
+        PreferencesPageExt, PreferencesRowExt, PreferencesWindowExt, WidgetExt,
     },
     component::{
         AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController, Component,
         ComponentController, Controller,
     },
-    gtk, AsyncComponentSender, RelmWidgetExt,
+    gtk,
+    gtk::glib,
+    AsyncComponentSender, RelmWidgetExt,
 };
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_name;
 
-use super::csam::database_component::CsamDatabaseComponent;
-
 pub struct PreferencesModel {
     open_dialog: Controller<OpenDialog>,
-    csam_database: AsyncController<CsamDatabaseComponent>,
     preference: models::Preference,
+    add_md5: AsyncController<AddMD5Model>,
+    hash_count: usize,
+    phash_count: usize,
+    keywords_count: usize,
 }
 
 #[derive(Debug)]
 pub enum PreferencesInput {
-    Ignore,
     OpenFileRequest,
     OpenFileResponse(PathBuf),
     SetColorScheme(models::ColorScheme),
     SetLanguage(models::Language),
+    AddHash,
+    AddPHash,
+    AddKeyword,
+    GoPrevious,
+    Quit,
+    Ignore,
 }
 
 #[relm4::component(pub async)]
@@ -47,30 +57,39 @@ impl AsyncComponent for PreferencesModel {
     view! {
         #[root]
         adw::PreferencesWindow {
-            set_title: Some(fl!("preferences")),
             set_hide_on_close: true,
             set_default_size: (400, 600),
             set_resizable: false,
+            set_search_enabled: false,
             set_transient_for: Some(&main_window),
+
+            connect_close_request[sender] => move |_| {
+                sender.input(PreferencesInput::Quit);
+                glib::Propagation::Proceed
+            },
 
             #[wrap(Some)]
             #[name(overlay)]
             set_content = &adw::ToastOverlay {
+                #[name(leaflet)]
                 #[wrap(Some)]
-                set_child = &gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
+                set_child = &adw::Leaflet {
+                    set_fold_threshold_policy: adw::FoldThresholdPolicy::Natural,
+                    set_transition_type: adw::LeafletTransitionType::Slide,
 
-                    append = &adw::HeaderBar {
-                        set_show_end_title_buttons: true,
-                        #[wrap(Some)]
-                        #[name(view_switch_title)]
-                        set_title_widget = &adw::ViewSwitcherTitle::new(),
-                    },
+                    append = &gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
 
-                    #[name(view_stack)]
-                    append = &adw::ViewStack {
+                        append = &adw::HeaderBar {
+                            set_show_end_title_buttons: true,
+                            #[wrap(Some)]
+                            set_title_widget = &gtk::Label {
+                                set_label: fl!("preferences"),
+                                set_css_classes: &["heading"],
+                            },
+                        },
 
-                        add = &adw::Clamp {
+                        append = &adw::Clamp {
                             #[wrap(Some)]
                             set_child = &adw::PreferencesPage {
                                 set_vexpand: true,
@@ -210,6 +229,7 @@ impl AsyncComponent for PreferencesModel {
 
                                 add = &adw::PreferencesGroup {
                                     set_title: fl!("database"),
+
                                     adw::EntryRow {
                                         set_hexpand: true,
                                         set_title: fl!("database-path"),
@@ -221,7 +241,127 @@ impl AsyncComponent for PreferencesModel {
                                             gtk::Button {
                                                 set_icon_name: icon_name::FOLDER_OPEN_FILLED,
                                                 set_css_classes: &["circular", "accent"],
-                                                add_css_class: "circular",
+                                                set_valign: gtk::Align::Center,
+                                                set_tooltip: fl!("select-directory"),
+                                                connect_clicked => PreferencesInput::OpenFileRequest,
+                                            }
+                                        },
+                                    },
+
+                                    adw::ActionRow {
+                                        set_title: fl!("hash"),
+                                        #[watch]
+                                        set_subtitle: &model.hash_count.to_string(),
+
+                                        add_suffix = &gtk::Box {
+                                            set_css_classes: &["linked"],
+                                            gtk::Button {
+                                                set_icon_name: icon_name::PLUS,
+                                                set_css_classes: &["circular", "accent"],
+                                                set_valign: gtk::Align::Center,
+                                                set_tooltip: fl!("add-hash"),
+                                                connect_clicked => PreferencesInput::AddHash,
+                                            }
+                                        },
+                                    },
+
+                                    adw::ActionRow {
+                                        set_title: fl!("phash"),
+                                        #[watch]
+                                        set_subtitle: &model.phash_count.to_string(),
+
+                                        add_suffix = &gtk::Box {
+                                            set_css_classes: &["linked"],
+                                            gtk::Button {
+                                                set_icon_name: icon_name::PLUS,
+                                                set_css_classes: &["circular", "accent"],
+                                                set_valign: gtk::Align::Center,
+                                                set_tooltip: fl!("add-phash"),
+                                                connect_clicked => PreferencesInput::AddPHash,
+                                            }
+                                        },
+                                    },
+
+                                    adw::ActionRow {
+                                        set_title: fl!("keywords"),
+                                        #[watch]
+                                        set_subtitle: &model.keywords_count.to_string(),
+
+                                        add_suffix = &gtk::Box {
+                                            set_css_classes: &["linked"],
+                                            gtk::Button {
+                                                set_icon_name: icon_name::PLUS,
+                                                set_css_classes: &["circular", "accent"],
+                                                set_valign: gtk::Align::Center,
+                                                set_tooltip: fl!("add-keyword"),
+                                                connect_clicked => PreferencesInput::AddKeyword,
+                                            }
+                                        },
+                                    },
+                                },
+                            }
+                        },
+                    } -> {
+                        set_name: Some("preferences"),
+                    },
+
+                    append = &gtk::Box {
+                        append = model.add_md5.widget(),
+                    } -> {
+                        set_name: Some("hash"),
+                    },
+
+                    append = &gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+
+                        append = &adw::HeaderBar {
+                            set_show_start_title_buttons: true,
+                            set_show_end_title_buttons: true,
+                            #[wrap(Some)]
+                            set_title_widget = &gtk::Label {
+                                set_label: fl!("phash"),
+                                set_css_classes: &["heading"],
+                            },
+                            pack_start = &gtk::Button {
+                                set_icon_name: "go-previous-symbolic",
+                                set_css_classes: &["flat"],
+                                set_tooltip: fl!("preferences"),
+                                connect_clicked => PreferencesInput::GoPrevious,
+                            },
+                        },
+
+                        append = &adw::Clamp {
+                            #[wrap(Some)]
+                            set_child = &adw::PreferencesPage {
+                                set_vexpand: true,
+
+                                add = &adw::PreferencesGroup {
+                                    set_title: fl!("phash"),
+                                    set_description: Some(fl!("add-phash-description")),
+
+                                    #[wrap(Some)]
+                                    set_header_suffix = &gtk::Box {
+                                        set_css_classes: &["linked"],
+                                        gtk::Button {
+                                            set_icon_name: icon_name::SAVE_FILLED,
+                                            set_css_classes: &["circular", "suggested-action"],
+                                            set_valign: gtk::Align::Center,
+                                            set_tooltip: fl!("generate-database"),
+                                            // connect_clicked => PreferencesInput::OpenFileRequest,
+                                        },
+                                    },
+
+                                    adw::EntryRow {
+                                        set_hexpand: true,
+                                        set_title: fl!("media-path"),
+                                        set_show_apply_button: false,
+                                        // #[watch]
+                                        // set_text: &model.preference.database_path.to_str().unwrap_or_default(),
+                                        add_suffix = &gtk::Box {
+                                            set_css_classes: &["linked"],
+                                            gtk::Button {
+                                                set_icon_name: icon_name::FOLDER_OPEN_FILLED,
+                                                set_css_classes: &["circular", "accent"],
                                                 set_valign: gtk::Align::Center,
                                                 set_tooltip: fl!("select-directory"),
                                                 connect_clicked => PreferencesInput::OpenFileRequest,
@@ -230,23 +370,58 @@ impl AsyncComponent for PreferencesModel {
                                     },
                                 },
                             }
-                        } -> {
-                            set_name: Some("app"),
-                            set_title: Some(fl!("application")),
-                            set_icon_name: Some(icon_name::CONFIGURE),
+                        },
+                    } -> {
+                        set_name: Some("phash"),
+                    },
+
+                    append = &gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+
+                        append = &adw::HeaderBar {
+                            set_show_start_title_buttons: true,
+                            set_show_end_title_buttons: true,
+                            #[wrap(Some)]
+                            set_title_widget = &gtk::Label {
+                                set_label: fl!("keywords"),
+                                set_css_classes: &["heading"],
+                            },
+                            pack_start = &gtk::Button {
+                                set_icon_name: "go-previous-symbolic",
+                                set_css_classes: &["flat"],
+                                set_tooltip: fl!("preferences"),
+                                connect_clicked => PreferencesInput::GoPrevious,
+                            },
                         },
 
-                        add = &adw::Clamp {
-                            set_child = Some(model.csam_database.widget()),
-                        } -> {
-                            set_name: Some("csam"),
-                            set_title: Some(fl!("csam")),
-                            set_icon_name: Some(icon_name::PARENT),
+                        append = &adw::Clamp {
+                            #[wrap(Some)]
+                            set_child = &adw::PreferencesPage {
+                                set_vexpand: true,
+
+                                add = &adw::PreferencesGroup {
+                                    set_title: fl!("keywords"),
+                                    set_description: Some(fl!("add-keyword-description")),
+
+                                    #[wrap(Some)]
+                                    set_header_suffix = &gtk::Box {
+                                        set_css_classes: &["linked"],
+                                        gtk::Button {
+                                            set_icon_name: icon_name::SAVE_FILLED,
+                                            set_css_classes: &["circular", "suggested-action"],
+                                            set_valign: gtk::Align::Center,
+                                            set_tooltip: fl!("save-keywords"),
+                                            // connect_clicked => PreferencesInput::OpenFileRequest,
+                                        },
+                                    },
+
+                                },
+                            }
                         },
-
-                    }, // adw::ViewStack
-
-                }
+                    } -> {
+                        set_name: Some("keyword"),
+                    },
+                },
             }
         }
     }
@@ -282,19 +457,23 @@ impl AsyncComponent for PreferencesModel {
                 OpenDialogResponse::Cancel => PreferencesInput::Ignore,
             });
 
-        let csam_database_controller = CsamDatabaseComponent::builder()
-            .launch(preference.clone())
-            .detach();
+        let add_md5_controller = AddMD5Model::builder().launch(preference.clone()).forward(
+            sender.input_sender(),
+            |output| match output {
+                AddMD5Output::GoPrevious => PreferencesInput::GoPrevious,
+            },
+        );
 
         let model = PreferencesModel {
             open_dialog,
-            csam_database: csam_database_controller,
             preference,
+            add_md5: add_md5_controller,
+            hash_count: 0,
+            phash_count: 0,
+            keywords_count: 0,
         };
 
         let widgets = view_output!();
-        let view_stack = Some(&widgets.view_stack);
-        widgets.view_switch_title.set_stack(view_stack);
 
         AsyncComponentParts { model, widgets }
     }
@@ -320,6 +499,21 @@ impl AsyncComponent for PreferencesModel {
             PreferencesInput::SetLanguage(language) => {
                 self.preference.language = language;
                 self.show_dialog(root);
+            }
+            PreferencesInput::AddHash => {
+                widgets.leaflet.set_visible_child_name("hash");
+            }
+            PreferencesInput::AddPHash => {
+                widgets.leaflet.set_visible_child_name("phash");
+            }
+            PreferencesInput::AddKeyword => {
+                widgets.leaflet.set_visible_child_name("keyword");
+            }
+            PreferencesInput::GoPrevious => {
+                widgets.leaflet.set_visible_child_name("preferences");
+            }
+            PreferencesInput::Quit => {
+                widgets.leaflet.set_visible_child_name("preferences");
             }
             PreferencesInput::Ignore => {}
         }
