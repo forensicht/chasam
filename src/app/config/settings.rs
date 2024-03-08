@@ -16,6 +16,8 @@ pub struct SettingsToml {
     pub theme: ColorScheme,
     #[allow(dead_code)]
     pub language: String,
+    #[allow(dead_code)]
+    pub database_path: String,
 }
 
 pub(crate) fn init() -> Result<()> {
@@ -70,6 +72,11 @@ pub(crate) async fn save_preferences(preference: &Preference) -> Result<()> {
     let settings_toml = SettingsToml {
         theme: preference.color_scheme,
         language: preference.language.to_string(),
+        database_path: preference
+            .database_path
+            .to_str()
+            .unwrap_or_default()
+            .to_string(),
     };
     set_settings(&settings_toml).context("Failed to save preferences.")?;
 

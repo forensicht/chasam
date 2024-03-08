@@ -1,2 +1,3 @@
 theme = "Dark"
 language = "en"
+database_path = 'D:\csam'

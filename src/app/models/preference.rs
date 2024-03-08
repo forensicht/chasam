@@ -1,6 +1,7 @@
 use anyhow::Result;
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq)]
@@ -66,6 +67,7 @@ impl FromStr for Language {
 pub struct Preference {
     pub color_scheme: ColorScheme,
     pub language: Language,
+    pub database_path: PathBuf,
 }
 
 impl Default for Preference {
@@ -73,15 +75,17 @@ impl Default for Preference {
         Self {
             color_scheme: ColorScheme::Default,
             language: Language::English,
+            database_path: PathBuf::default(),
         }
     }
 }
 
 impl Preference {
-    pub fn new(color_scheme: ColorScheme, language: Language) -> Self {
+    pub fn new(color_scheme: ColorScheme, language: Language, database_path: &str) -> Self {
         Self {
             color_scheme,
             language,
+            database_path: PathBuf::from_str(database_path).unwrap_or_default(),
         }
     }
 }

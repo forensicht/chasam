@@ -28,6 +28,7 @@ video = Video
 
 # Preferences
 preferences = Preferences
+application = Application
 appearance = Appearance
 color-scheme = Color Scheme
 color-scheme-light = Light
@@ -38,6 +39,13 @@ englis = Englis
 portuguese = Portuguese
 spanish = Spanish
 message-dialog = The program must be restarted for the changes to take effect.
+database = Database
+database-path = Database path
+media-path = Media path
+entries = Entries
+keywords = Keywords
+generate-hash = Generate MD5 hash and perceptual hash.
+title-hash = Hash
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>

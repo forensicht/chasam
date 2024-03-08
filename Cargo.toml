@@ -88,6 +88,9 @@ features = [
     "parent",
     "harddisk",
     "filter-dismiss-filled",
+    "folder-open-filled",
+    "save-filled",
+    "configure",
 ]
 
 [build-dependencies]
