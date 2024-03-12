@@ -1,7 +1,11 @@
 use crate::app::{config::settings, models};
 use crate::fl;
 
-use crate::app::components::csam::add_md5::{AddMD5Model, AddMD5Output};
+use crate::app::components::csam::{
+    keyword_database::{KeywordDatabaseModel, KeywordDatabaseOutput},
+    md5_database::{MD5DatabaseModel, MD5DatabaseOutput},
+    phash_database::{PHashDatabaseModel, PHashDatabaseOutput},
+};
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -27,7 +31,9 @@ use relm4_icons::icon_name;
 pub struct PreferencesModel {
     open_dialog: Controller<OpenDialog>,
     preference: models::Preference,
-    add_md5: AsyncController<AddMD5Model>,
+    md5_database: AsyncController<MD5DatabaseModel>,
+    phash_database: AsyncController<PHashDatabaseModel>,
+    keyword_database: AsyncController<KeywordDatabaseModel>,
     hash_count: usize,
     phash_count: usize,
     keywords_count: usize,
@@ -306,118 +312,19 @@ impl AsyncComponent for PreferencesModel {
                     },
 
                     append = &gtk::Box {
-                        append = model.add_md5.widget(),
+                        append = model.md5_database.widget(),
                     } -> {
                         set_name: Some("hash"),
                     },
 
                     append = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-
-                        append = &adw::HeaderBar {
-                            set_show_start_title_buttons: true,
-                            set_show_end_title_buttons: true,
-                            #[wrap(Some)]
-                            set_title_widget = &gtk::Label {
-                                set_label: fl!("phash"),
-                                set_css_classes: &["heading"],
-                            },
-                            pack_start = &gtk::Button {
-                                set_icon_name: "go-previous-symbolic",
-                                set_css_classes: &["flat"],
-                                set_tooltip: fl!("preferences"),
-                                connect_clicked => PreferencesInput::GoPrevious,
-                            },
-                        },
-
-                        append = &adw::Clamp {
-                            #[wrap(Some)]
-                            set_child = &adw::PreferencesPage {
-                                set_vexpand: true,
-
-                                add = &adw::PreferencesGroup {
-                                    set_title: fl!("phash"),
-                                    set_description: Some(fl!("add-phash-description")),
-
-                                    #[wrap(Some)]
-                                    set_header_suffix = &gtk::Box {
-                                        set_css_classes: &["linked"],
-                                        gtk::Button {
-                                            set_icon_name: icon_name::SAVE_FILLED,
-                                            set_css_classes: &["circular", "suggested-action"],
-                                            set_valign: gtk::Align::Center,
-                                            set_tooltip: fl!("generate-database"),
-                                            // connect_clicked => PreferencesInput::OpenFileRequest,
-                                        },
-                                    },
-
-                                    adw::EntryRow {
-                                        set_hexpand: true,
-                                        set_title: fl!("media-path"),
-                                        set_show_apply_button: false,
-                                        // #[watch]
-                                        // set_text: &model.preference.database_path.to_str().unwrap_or_default(),
-                                        add_suffix = &gtk::Box {
-                                            set_css_classes: &["linked"],
-                                            gtk::Button {
-                                                set_icon_name: icon_name::FOLDER_OPEN_FILLED,
-                                                set_css_classes: &["circular", "accent"],
-                                                set_valign: gtk::Align::Center,
-                                                set_tooltip: fl!("select-directory"),
-                                                connect_clicked => PreferencesInput::OpenFileRequest,
-                                            }
-                                        },
-                                    },
-                                },
-                            }
-                        },
+                        append = model.phash_database.widget(),
                     } -> {
                         set_name: Some("phash"),
                     },
 
                     append = &gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-
-                        append = &adw::HeaderBar {
-                            set_show_start_title_buttons: true,
-                            set_show_end_title_buttons: true,
-                            #[wrap(Some)]
-                            set_title_widget = &gtk::Label {
-                                set_label: fl!("keywords"),
-                                set_css_classes: &["heading"],
-                            },
-                            pack_start = &gtk::Button {
-                                set_icon_name: "go-previous-symbolic",
-                                set_css_classes: &["flat"],
-                                set_tooltip: fl!("preferences"),
-                                connect_clicked => PreferencesInput::GoPrevious,
-                            },
-                        },
-
-                        append = &adw::Clamp {
-                            #[wrap(Some)]
-                            set_child = &adw::PreferencesPage {
-                                set_vexpand: true,
-
-                                add = &adw::PreferencesGroup {
-                                    set_title: fl!("keywords"),
-                                    set_description: Some(fl!("add-keyword-description")),
-
-                                    #[wrap(Some)]
-                                    set_header_suffix = &gtk::Box {
-                                        set_css_classes: &["linked"],
-                                        gtk::Button {
-                                            set_icon_name: icon_name::SAVE_FILLED,
-                                            set_css_classes: &["circular", "suggested-action"],
-                                            set_valign: gtk::Align::Center,
-                                            set_tooltip: fl!("save-keywords"),
-                                            // connect_clicked => PreferencesInput::OpenFileRequest,
-                                        },
-                                    },
-
-                                },
-                            }
-                        },
+                        append = model.keyword_database.widget(),
                     } -> {
                         set_name: Some("keyword"),
                     },
@@ -457,17 +364,30 @@ impl AsyncComponent for PreferencesModel {
                 OpenDialogResponse::Cancel => PreferencesInput::Ignore,
             });
 
-        let add_md5_controller = AddMD5Model::builder().launch(preference.clone()).forward(
-            sender.input_sender(),
-            |output| match output {
-                AddMD5Output::GoPrevious => PreferencesInput::GoPrevious,
-            },
-        );
+        let md5_database_controller = MD5DatabaseModel::builder()
+            .launch(preference.clone())
+            .forward(sender.input_sender(), |output| match output {
+                MD5DatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            });
+
+        let phash_database_controller = PHashDatabaseModel::builder()
+            .launch(preference.clone())
+            .forward(sender.input_sender(), |output| match output {
+                PHashDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            });
+
+        let keyword_database_controller = KeywordDatabaseModel::builder()
+            .launch(preference.clone())
+            .forward(sender.input_sender(), |output| match output {
+                KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            });
 
         let model = PreferencesModel {
             open_dialog,
             preference,
-            add_md5: add_md5_controller,
+            md5_database: md5_database_controller,
+            phash_database: phash_database_controller,
+            keyword_database: keyword_database_controller,
             hash_count: 0,
             phash_count: 0,
             keywords_count: 0,

@@ -1,5 +1,7 @@
-pub mod add_md5;
+pub mod keyword_database;
+pub mod md5_database;
 pub mod media_details;
+pub mod phash_database;
 pub mod statusbar;
 pub mod toolbar;
 
