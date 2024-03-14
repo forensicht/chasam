@@ -1,47 +1,13 @@
+use super::transform_image as transform;
 use anyhow::Result;
-use image::{imageops::FilterType, DynamicImage, Luma};
-use std::path::Path;
-
-type PixelMatrix = Vec<Vec<Luma<u8>>>;
+use image::{imageops::FilterType, DynamicImage};
 
 #[allow(unused)]
-pub fn difference_hash<P>(path: P) -> Result<u64>
-where
-    P: AsRef<Path>,
-{
-    if let Some(p) = path.as_ref().to_str() {
-        let img = image::open(p)?;
-
-        let (w, h) = (9, 8);
-        let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
-        let img_buf = img_resized.to_luma8();
-        let pixel_matrix = image_to_pixel_matrix(&img_buf);
-        let mut idx: u64 = 0;
-        let mut hash: u64 = 0;
-
-        let (w, h) = (w as usize, h as usize);
-
-        for y in 0..h {
-            for x in 0..w - 1 {
-                if pixel_matrix[y][x].0 > pixel_matrix[y][x + 1].0 {
-                    hash |= 1 << (64 - idx - 1) as u32;
-                }
-                idx += 1;
-            }
-        }
-
-        return Ok(hash);
-    }
-
-    Ok(0)
-}
-
-#[allow(unused)]
-pub fn difference_hash_raw(img: DynamicImage, buf: &[u8]) -> Result<u64> {
+pub fn difference_hash(img: DynamicImage) -> Result<u64> {
     let (w, h) = (9, 8);
     let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
     let img_buf = img_resized.to_luma8();
-    let pixel_matrix = image_to_pixel_matrix(&img_buf);
+    let pixel_matrix = transform::image_to_pixel_matrix(&img_buf);
     let mut idx: u64 = 0;
     let mut hash: u64 = 0;
 
@@ -49,55 +15,86 @@ pub fn difference_hash_raw(img: DynamicImage, buf: &[u8]) -> Result<u64> {
 
     for y in 0..h {
         for x in 0..w - 1 {
-            if pixel_matrix[y][x].0 > pixel_matrix[y][x + 1].0 {
-                hash |= 1 << (64 - idx - 1) as u32;
+            if pixel_matrix[y][x] > pixel_matrix[y][x + 1] {
+                hash |= 1 << (64 - idx - 1);
             }
             idx += 1;
         }
     }
 
-    return Ok(hash);
+    Ok(hash)
 }
 
 #[allow(unused)]
-pub fn average_hash<P>(path: P) -> Result<u64>
-where
-    P: AsRef<Path>,
-{
-    if let Some(p) = path.as_ref().to_str() {
-        let img = image::open(p)?;
+pub fn average_hash(img: DynamicImage) -> Result<u64> {
+    let (w, h) = (8, 8);
+    let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
+    let img_buf = img_resized.to_luma8();
+    let pixel_matrix = transform::image_to_pixel_matrix(&img_buf);
+    let mut float_pixels: Vec<f64> = Vec::with_capacity(64);
+    let mut sum = 0.0;
 
-        let (w, h) = (8, 8);
-        let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
-        let img_buf = img_resized.to_luma8();
-        let pixel_matrix = image_to_pixel_matrix(&img_buf);
-        let mut float_pixels: Vec<u8> = Vec::with_capacity(64);
-        let mut sum = 0u32;
+    let (w, h) = (w as usize, h as usize);
 
-        let (w, h) = (w as usize, h as usize);
-
-        for y in 0..h {
-            for x in 0..w {
-                sum += pixel_matrix[y][x].0[0] as u32;
-                float_pixels.push(pixel_matrix[y][x].0[0]);
-            }
+    for y in 0..h {
+        for x in 0..w {
+            sum += pixel_matrix[y][x];
+            float_pixels.push(pixel_matrix[y][x]);
         }
-
-        let avg = (sum / 64) as u8;
-        let mut idx: u64 = 0;
-        let mut hash: u64 = 0;
-
-        for p in float_pixels {
-            if p > avg {
-                hash |= 1 << (64 - idx - 1) as u32;
-            }
-            idx += 1;
-        }
-
-        return Ok(hash);
     }
 
-    Ok(0)
+    let avg = sum / 64 as f64;
+    let mut idx: u64 = 0;
+    let mut hash: u64 = 0;
+
+    for p in float_pixels {
+        if p > avg {
+            hash |= 1 << (64 - idx - 1);
+        }
+        idx += 1;
+    }
+
+    Ok(hash)
+}
+
+/// PerceptionHash function returns a hash computation of perception hash vertically.
+/// Implementation follows
+/// https://www.hackerfactor.com/blog/index.php?/archives/432-Looks-Like-It.html
+#[allow(unused)]
+pub fn perception_hash(img: DynamicImage) -> Result<u64> {
+    let (w, h) = (32, 32);
+    let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
+    let img_buf = img_resized.to_luma8();
+    let pixels = transform::image_to_pixel_matrix(&img_buf);
+    let dct = transform::dct2d(&pixels, w as usize, h as usize);
+
+    // Calculate the average of the dct.
+    let (w, h) = (8, 8);
+    let mut flat_dct: Vec<f64> = Vec::with_capacity(64);
+    let mut sum = 0.0;
+
+    for y in 0..h {
+        for x in 0..w {
+            sum += dct[y][x];
+            flat_dct.push(dct[y][x]);
+        }
+    }
+
+    // excluding the first term since the DC coefficient can be significantly different from the
+    // other values and will throw off the average.
+    sum -= dct[0][0];
+    let avg = sum / 63 as f64;
+
+    // extract the hash.
+    let mut hash: u64 = 0;
+
+    for (idx, p) in flat_dct.iter().enumerate() {
+        if *p > avg {
+            hash |= 1 << (64 - idx - 1);
+        }
+    }
+
+    Ok(hash)
 }
 
 #[allow(unused)]
@@ -111,67 +108,23 @@ pub fn hex_to_u64(hex: &str) -> Result<u64, std::num::ParseIntError> {
     u64::from_str_radix(hex, 16)
 }
 
-fn new_canvas(x: u32, y: u32) -> PixelMatrix {
-    let canvas = vec![vec![image::Luma([255 as u8]); y as usize]; x as usize];
-    canvas
-}
-
-fn image_to_pixel_matrix(img: &image::GrayImage) -> PixelMatrix {
-    let (w, h) = img.dimensions();
-    let mut output_matrix = new_canvas(h, w);
-
-    for y in 0..h {
-        for x in 0..w {
-            output_matrix[y as usize][x as usize] = *img.get_pixel(x, y);
-        }
-    }
-
-    output_matrix
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::media;
+    use std::path::Path;
 
     #[test]
     fn test_difference_hash() {
-        let l_path = Path::new("D:/images_test/horse.jpg");
-        let r_path = Path::new("D:/images_test/horse_2.jpg");
-
-        let l_hash = match difference_hash(&l_path) {
-            Ok(hash) => {
-                println!("{} {}", format!("{hash:X}"), hash);
-                hash
-            }
-            Err(err) => {
-                assert!(false, "{err}");
-                0
-            }
-        };
-
-        let r_hash = match difference_hash(&r_path) {
-            Ok(hash) => {
-                println!("{} {}", format!("{hash:X}"), hash);
-                hash
-            }
-            Err(err) => {
-                assert!(false, "{err}");
-                0
-            }
-        };
-
-        assert!(true, "Distance: {}", distance(l_hash, r_hash));
-    }
-
-    #[test]
-    fn test_difference_hash_raw() {
-        use crate::utils::media;
         let media_path = Path::new("D:/images_test/horse.jpg");
         let thumb_size = 240;
 
         match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, buf)) => match difference_hash_raw(img, &buf) {
-                Ok(hash) => assert_ne!(hash, 0),
+            Ok((img, _)) => match difference_hash(img) {
+                Ok(hash) => {
+                    println!("D-HASH: {}", format!("{hash:X}"));
+                    assert_ne!(hash, 0);
+                }
                 Err(err) => assert!(false, "{err}"),
             },
             Err(err) => assert!(false, "{err}"),
@@ -180,32 +133,36 @@ mod tests {
 
     #[test]
     fn test_average_hash() {
-        let l_path = Path::new("D:/images_test/horse.jpg");
-        let r_path = Path::new("D:/images_test/horse_2.jpg");
+        let media_path = Path::new("D:/images_test/horse.jpg");
+        let thumb_size = 240;
 
-        let l_hash = match average_hash(&l_path) {
-            Ok(hash) => {
-                println!("{}", format!("{hash:X}"));
-                hash
-            }
-            Err(err) => {
-                assert!(false, "{err}");
-                0
-            }
-        };
+        match media::make_thumbnail_to_vec(media_path, thumb_size) {
+            Ok((img, _)) => match average_hash(img) {
+                Ok(hash) => {
+                    println!("A-HASH: {}", format!("{hash:X}"));
+                    assert_ne!(hash, 0);
+                }
+                Err(err) => assert!(false, "{err}"),
+            },
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
 
-        let r_hash = match average_hash(&r_path) {
-            Ok(hash) => {
-                println!("{}", format!("{hash:X}"));
-                hash
-            }
-            Err(err) => {
-                assert!(false, "{err}");
-                0
-            }
-        };
+    #[test]
+    fn test_perception_hash() {
+        let media_path = Path::new("D:/images_test/horse.jpg");
+        let thumb_size = 240;
 
-        assert!(true, "Distance: {}", distance(l_hash, r_hash));
+        match media::make_thumbnail_to_vec(media_path, thumb_size) {
+            Ok((img, _)) => match perception_hash(img) {
+                Ok(hash) => {
+                    println!("P-HASH: {}", format!("{hash:X}"));
+                    assert_ne!(hash, 0);
+                }
+                Err(err) => assert!(false, "{err}"),
+            },
+            Err(err) => assert!(false, "{err}"),
+        }
     }
 
     #[test]
