@@ -2,6 +2,9 @@ use super::transform_image as transform;
 use anyhow::Result;
 use image::{imageops::FilterType, DynamicImage};
 
+/// difference_hash function returns a hash computation of difference hash.
+/// Implementation follows
+/// https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html
 #[allow(unused)]
 pub fn difference_hash(img: DynamicImage) -> Result<u64> {
     let (w, h) = (9, 8);
@@ -25,6 +28,9 @@ pub fn difference_hash(img: DynamicImage) -> Result<u64> {
     Ok(hash)
 }
 
+/// average_hash function returns a hash computation of average hash vertically.
+/// Implementation follows
+/// https://www.hackerfactor.com/blog/index.php?/archives/432-Looks-Like-It.html
 #[allow(unused)]
 pub fn average_hash(img: DynamicImage) -> Result<u64> {
     let (w, h) = (8, 8);
@@ -57,15 +63,25 @@ pub fn average_hash(img: DynamicImage) -> Result<u64> {
     Ok(hash)
 }
 
-/// PerceptionHash function returns a hash computation of perception hash vertically.
+#[allow(unused)]
+#[derive(Debug)]
+pub enum ColorType {
+    Gray,
+    Threshold,
+}
+
+/// perception_hash function returns a hash computation of perception hash.
 /// Implementation follows
 /// https://www.hackerfactor.com/blog/index.php?/archives/432-Looks-Like-It.html
 #[allow(unused)]
-pub fn perception_hash(img: DynamicImage) -> Result<u64> {
+pub fn perception_hash(img: DynamicImage, color_type: ColorType) -> Result<u64> {
     let (w, h) = (32, 32);
     let img_resized = img.resize_exact(w, h, FilterType::Lanczos3);
     let img_buf = img_resized.to_luma8();
-    let pixels = transform::image_to_pixel_matrix(&img_buf);
+    let pixels = match color_type {
+        ColorType::Gray => transform::image_to_pixel_matrix(&img_buf),
+        ColorType::Threshold => transform::image_to_threshold_matrix(&img_buf, 114),
+    };
     let dct = transform::dct2d(&pixels, w as usize, h as usize);
 
     // Calculate the average of the dct.
@@ -154,7 +170,7 @@ mod tests {
         let thumb_size = 240;
 
         match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, _)) => match perception_hash(img) {
+            Ok((img, _)) => match perception_hash(img, ColorType::Gray) {
                 Ok(hash) => {
                     println!("P-HASH: {}", format!("{hash:X}"));
                     assert_ne!(hash, 0);

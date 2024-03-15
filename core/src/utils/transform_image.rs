@@ -2,6 +2,23 @@ use std::f64::consts::PI;
 
 pub type PixelMatrix = Vec<Vec<f64>>;
 
+pub fn image_to_threshold_matrix(img: &image::GrayImage, limiar: u8) -> PixelMatrix {
+    let (w, h) = img.dimensions();
+    let mut output_matrix = new_canvas(h, w);
+
+    for y in 0..h {
+        for x in 0..w {
+            if img.get_pixel(x, y).0[0] > limiar {
+                output_matrix[y as usize][x as usize] = 255.0;
+            } else {
+                output_matrix[y as usize][x as usize] = 0.0;
+            }
+        }
+    }
+
+    output_matrix
+}
+
 pub fn image_to_pixel_matrix(img: &image::GrayImage) -> PixelMatrix {
     let (w, h) = img.dimensions();
     let mut output_matrix = new_canvas(h, w);
