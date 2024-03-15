@@ -1,4 +1,7 @@
+pub mod keyword_database;
+pub mod md5_database;
 pub mod media_details;
+pub mod phash_database;
 pub mod statusbar;
 pub mod toolbar;
 
@@ -247,7 +250,6 @@ impl AsyncComponent for CsamModel {
                 MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
             });
 
-        // let service = service::csam::SearchMedia::new();
         let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
@@ -499,7 +501,10 @@ fn on_filter(filter: Rc<RefCell<models::MediaFilter>>) -> impl Fn(&MediaItem) ->
         }
 
         // filter by hamming distance
-        if filter.is_csam && (media.hamming > filter.hamming_distance) {
+        // if filter.is_csam && (media.hamming > filter.hamming_distance) {
+        //     return false;
+        // }
+        if (media.hamming > 0) && (media.hamming > filter.hamming_distance) {
             return false;
         }
 

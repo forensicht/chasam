@@ -1,6 +1,7 @@
 use crate::fl;
 use core_chasam as core;
 
+use bytes::Bytes;
 use chrono::prelude::*;
 
 pub const ZOOM_SIZE: i32 = 20;
@@ -36,7 +37,7 @@ pub struct Media {
     pub phash: u64,
     pub match_type: String,
     pub hamming: u32,
-    pub data: Option<Vec<u8>>,
+    pub data: Option<Bytes>,
     pub is_selected: bool,
     pub thumbnail_size: i32,
 }
@@ -56,7 +57,7 @@ impl From<&core::csam::Media> for Media {
             phash: media.phash,
             match_type: media.match_type.clone(),
             hamming: media.hamming,
-            data: media.data.to_owned(),
+            data: media.data.clone(),
             is_selected: false,
             thumbnail_size: THUMBNAIL_SIZE,
         }
@@ -110,11 +111,7 @@ impl From<&Media> for MediaDetail {
             hash: media.hash.clone(),
             phash: format!("{:X}", media.phash),
             match_type: media.match_type.clone(),
-            hamming: if media.hamming > 0 {
-                media.hamming.to_string()
-            } else {
-                String::new()
-            },
+            hamming: media.hamming.to_string(),
         }
     }
 }

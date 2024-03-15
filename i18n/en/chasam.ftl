@@ -38,6 +38,20 @@ englis = Englis
 portuguese = Portuguese
 spanish = Spanish
 message-dialog = The program must be restarted for the changes to take effect.
+database = Database
+database-path = Database path
+media-path = Media path
+keyword = Keyword
+keywords = Keywords
+save-keywords = Save keywords
+generate-database = Generate database
+add-hash = Add MD5 hash
+add-phash = Add perceptual hash
+add-keyword = Add keyword
+add-hash-description = Generate MD5 hash database.
+add-phash-description = Generate perceptual hash database.
+add-keyword-description = Generate keyword database.
+enter-keyword = Enter a keyword...
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>

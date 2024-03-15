@@ -2,6 +2,7 @@ use super::repository::{Repository, MAX_DISTANCE_HAMMING};
 use crate::utils;
 
 use anyhow::{Context, Result};
+use bytes::Bytes;
 use chrono::Local;
 use std::sync::Arc;
 use walkdir::DirEntry;
@@ -25,7 +26,7 @@ pub struct Media {
     pub phash: u64,
     pub match_type: String,
     pub hamming: u32,
-    pub data: Option<Vec<u8>>,
+    pub data: Option<Bytes>,
 }
 
 impl Media {
@@ -61,7 +62,7 @@ impl Media {
         let (dynamic_img, img_data) = match media_type {
             MediaType::Image => {
                 match utils::media::make_thumbnail_to_vec(&media_path, THUMBNAIL_SIZE) {
-                    Ok((img, buf)) => (Some(img), Some(buf)),
+                    Ok((img, buf)) => (Some(img), Some(Bytes::from(buf))),
                     Err(err) => {
                         tracing::error!("{} : {}", media_path.as_str(), err);
                         (None, None)
@@ -73,12 +74,8 @@ impl Media {
 
         // perceptual hash of the file
         let phash = if media_size > 0 {
-            if let Some(data) = img_data.as_ref() {
-                utils::media::get_image_perceptual_hash(dynamic_img.unwrap(), data)
-                    .with_context(|| "could not generate perceptual hash")?
-            } else {
-                0
-            }
+            utils::media::get_image_perceptual_hash(dynamic_img.unwrap())
+                .with_context(|| "could not generate perceptual hash")?
         } else {
             0
         };
@@ -126,14 +123,14 @@ impl Media {
             return None;
         }
         if let Some(distance) = Media::find_csam_by_phash(phash, repository.clone()) {
-            return Some(("phash".to_string(), distance));
+            return Some(("chHash".to_string(), distance));
         }
         None
     }
 
     fn find_csam_by_hash(hash: &str, repository: Arc<dyn Repository>) -> Option<String> {
         if repository.contains_hash(hash) {
-            return Some("hash".to_string());
+            return Some("MD5".to_string());
         }
         None
     }

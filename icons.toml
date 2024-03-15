@@ -1,0 +1,26 @@
+app_id = "com.github.forensicht.ChaSAM"
+base_resource_path = "/com/github/forensicht/ChaSAM/"
+
+icons = [
+    "menu",
+    "loupe-large",
+    "stop-large",
+    "entry-clear",
+    "plus",
+    "minus",
+    "checkmark",
+    "cameras",
+    "play-large",
+    "image",
+    "pencil-and-paper",
+    "plus-large",
+    "minus-large",
+    "file-manager",
+    "stamp",
+    "parent",
+    "harddisk",
+    "filter-dismiss-filled",
+    "folder-open-filled",
+    "save-filled",
+    "configure",
+]

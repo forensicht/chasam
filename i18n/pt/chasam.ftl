@@ -38,6 +38,20 @@ englis = Inglês
 portuguese = Português
 spanish = Espanhol
 message-dialog = O programa deve ser reiniciado para que as alterações tenham efeito.
+database = Base de dados
+database-path = Diretório da base de dados
+media-path = Diretório da mídia
+keyword = Palavra-chave
+keywords = Palavras-chave
+save-keywords = Salvar palavras-chave
+generate-database = Gerar base de dados
+add-hash = Adicionar hash MD5
+add-phash = Adicionar hash perceptivo
+add-keyword = Adicionar palavra-chave
+add-hash-description = Gerar base de dados de hash MD5.
+add-phash-description = Gerar base de dados de hash perceptivo.
+add-keyword-description = Gerar base de dados de palavras-chave.
+enter-keyword = Insira uma palavra-chave...
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>

@@ -1,5 +1,7 @@
 use crate::fl;
 
+use core_chasam::csam::MAX_DISTANCE_HAMMING;
+
 use relm4::{
     component::{Component, ComponentParts},
     gtk::prelude::{
@@ -9,7 +11,7 @@ use relm4::{
     prelude::*,
     ComponentSender, MessageBroker,
 };
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub static SELECT_BROKER: MessageBroker<ToolbarInput> = MessageBroker::new();
 
@@ -74,7 +76,7 @@ impl Component for ToolbarModel {
                 set_halign: gtk::Align::Start,
 
                 gtk::Button {
-                    set_icon_name: icon_name::MINUS,
+                    set_icon_name: icon_names::MINUS,
                     set_tooltip: fl!("deselect-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
@@ -83,7 +85,7 @@ impl Component for ToolbarModel {
                 },
 
                 gtk::Button {
-                    set_icon_name: icon_name::CHECKMARK,
+                    set_icon_name: icon_names::CHECKMARK,
                     set_tooltip: fl!("select-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
@@ -116,7 +118,7 @@ impl Component for ToolbarModel {
                 set_spacing: 6,
 
                 gtk::Button {
-                    set_icon_name: icon_name::MINUS,
+                    set_icon_name: icon_names::MINUS,
                     set_tooltip: fl!("zoom-out"),
                     add_css_class: "circular",
                     connect_clicked[sender] => move |_| {
@@ -125,7 +127,7 @@ impl Component for ToolbarModel {
                 },
 
                 gtk::Button {
-                    set_icon_name: icon_name::PLUS,
+                    set_icon_name: icon_names::PLUS,
                     set_tooltip: fl!("zoom-in"),
                     add_css_class: "circular",
                     connect_clicked[sender] => move |_| {
@@ -151,7 +153,8 @@ impl Component for ToolbarModel {
 
                     #[name(label_hamming)]
                     gtk::Label {
-                        set_label: "10",
+                        set_width_request: 12,
+                        set_label: "20",
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Center,
                         set_margin_start: 6,
@@ -166,7 +169,7 @@ impl Component for ToolbarModel {
                         set_draw_value: false,
                         set_digits: 0,
                         set_width_request: 100,
-                        set_adjustment: &gtk::Adjustment::new(10f64, 1f64, 10f64, 1f64, 10f64, 0f64),
+                        set_adjustment: &gtk::Adjustment::new(20f64, 1f64, 20f64, 1f64, 20f64, 0f64),
                         connect_value_changed[sender, label_hamming] => move |scale| {
                             let value: u32 = scale.value().round() as u32;
                             label_hamming.set_label(&value.to_string());
@@ -183,7 +186,8 @@ impl Component for ToolbarModel {
                 set_spacing: 6,
 
                 append = &gtk::Button {
-                    set_label: fl!("clean-filters"),
+                    set_icon_name: icon_names::FILTER_DISMISS_FILLED,
+                    set_tooltip: fl!("clean-filters"),
                     add_css_class: "flat",
                     connect_clicked => ToolbarInput::CleanFilters,
                 },
@@ -522,6 +526,7 @@ impl Component for ToolbarModel {
                 widgets.chk_video.set_active(true);
                 widgets.chk_all_size.set_active(true);
                 widgets.search_entry.set_text("");
+                widgets.scale_hamming.set_value(MAX_DISTANCE_HAMMING as f64);
             }
             ToolbarInput::SelectedItem(is_selected) => {
                 if is_selected {

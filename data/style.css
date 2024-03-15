@@ -49,6 +49,15 @@ gridview child:focus {
     border-spacing: 0;
 }
 
+.border-radius {
+    border-radius: 5px;
+}
+
+.box-frame {
+    border-radius: 5px;
+    padding: 6px;
+}
+
 .menu-list>row {
     padding: 6px;
 }
@@ -78,9 +87,13 @@ gridview child:focus {
 }
 
 .key-label {
-    font-weight: 500;
+    font-weight: 600;
     opacity: 0.80;
     font-size: 12px;
+}
+
+.text-bold {
+    font-weight: bold;
 }
 
 .color-red {

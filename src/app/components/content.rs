@@ -1,5 +1,5 @@
 use crate::app::{
-    components::{csam::CsamModel, csam_db::CsamDBModel, face::FaceModel},
+    components::{csam::CsamModel, face::FaceModel},
     models::SidebarOption,
 };
 use core_chasam as service;
@@ -19,7 +19,6 @@ use relm4::{
 pub struct ContentModel {
     csam: AsyncController<CsamModel>,
     face: AsyncController<FaceModel>,
-    csam_db: AsyncController<CsamDBModel>,
     sidebar_option: Option<SidebarOption>,
 }
 
@@ -27,13 +26,11 @@ impl ContentModel {
     pub fn new(
         csam: AsyncController<CsamModel>,
         face: AsyncController<FaceModel>,
-        csam_db: AsyncController<CsamDBModel>,
         sidebar_option: Option<SidebarOption>,
     ) -> Self {
         Self {
             csam,
             face,
-            csam_db,
             sidebar_option,
         }
     }
@@ -75,14 +72,6 @@ impl SimpleAsyncComponent for ContentModel {
                         append: model.face.widget(),
                     }
                 },
-                Some(SidebarOption::DB) => {
-                    gtk::Box {
-                        #[watch]
-                        set_visible: model.sidebar_option.is_some(),
-                        set_orientation: gtk::Orientation::Vertical,
-                        append: model.csam_db.widget(),
-                    }
-                },
                 None => {
                     gtk::Label {
                         set_label: "Not Found!",
@@ -99,14 +88,8 @@ impl SimpleAsyncComponent for ContentModel {
     ) -> AsyncComponentParts<Self> {
         let csam_controller = CsamModel::builder().launch(service).detach();
         let face_controller = FaceModel::builder().launch(()).detach();
-        let csam_db_controller = CsamDBModel::builder().launch(()).detach();
 
-        let model = ContentModel::new(
-            csam_controller,
-            face_controller,
-            csam_db_controller,
-            Some(SidebarOption::CSAM),
-        );
+        let model = ContentModel::new(csam_controller, face_controller, Some(SidebarOption::CSAM));
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }

@@ -133,6 +133,7 @@ impl SearchMedia {
         });
     }
 
+    #[inline]
     fn is_media(entry: &Path) -> bool {
         match entry.extension() {
             Some(e) if utils::media::is_media(&e.to_string_lossy().to_lowercase()) => true,

@@ -69,14 +69,15 @@ where
 {
     let mut hash: u64 = 0;
     if let Some(p) = path.as_ref().to_str() {
-        hash = phash::difference_hash(p)?;
+        let img = image::open(path)?;
+        hash = phash::difference_hash(img)?;
     }
     Ok(hash)
 }
 
 #[allow(unused)]
-pub fn get_image_perceptual_hash(img: DynamicImage, data: &[u8]) -> Result<u64> {
-    phash::difference_hash_raw(img, data)
+pub fn get_image_perceptual_hash(img: DynamicImage) -> Result<u64> {
+    phash::difference_hash(img)
 }
 
 #[allow(unused)]

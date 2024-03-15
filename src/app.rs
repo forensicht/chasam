@@ -25,7 +25,7 @@ use relm4::{
     main_adw_application, view, AsyncComponentSender, ComponentBuilder, ComponentController,
     Controller, RelmWidgetExt,
 };
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct App {
     sidebar: AsyncController<SidebarModel>,
@@ -74,7 +74,7 @@ impl AsyncComponent for App {
                 preferences => PreferencesAction,
                 about => AboutAction,
                 quit => QuitAction,
-            }
+            },
         }
     }
 
@@ -110,7 +110,7 @@ impl AsyncComponent for App {
                             gtk::MenuButton {
                                 set_valign: gtk::Align::Center,
                                 set_css_classes: &["flat"],
-                                set_icon_name: icon_name::MENU,
+                                set_icon_name: icon_names::MENU,
                                 set_tooltip: fl!("menu"),
                                 set_menu_model: Some(&primary_menu),
                             },
@@ -205,13 +205,11 @@ impl AsyncComponent for App {
         let preferences_controller = PreferencesModel::builder()
             .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
             .detach();
-
         model.preferences = Some(preferences_controller);
 
         let about_dialog = ComponentBuilder::default()
             .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
             .detach();
-
         model.about_dialog = Some(about_dialog);
 
         let preferences_action = {
