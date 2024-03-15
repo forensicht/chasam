@@ -1,5 +1,5 @@
 use crate::fl;
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -36,8 +36,8 @@ impl SidebarOption {
 
     pub fn icon(&self) -> Option<&str> {
         match self {
-            Self::CSAM => Some(icon_name::PARENT),
-            Self::Face => Some(icon_name::STAMP),
+            Self::CSAM => Some(icon_names::PARENT),
+            Self::Face => Some(icon_names::STAMP),
         }
     }
 }

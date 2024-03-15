@@ -26,7 +26,7 @@ use relm4::{
     AsyncComponentSender, RelmWidgetExt,
 };
 use relm4_components::open_dialog::*;
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct PreferencesModel {
     open_dialog: Controller<OpenDialog>,
@@ -245,7 +245,7 @@ impl AsyncComponent for PreferencesModel {
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
                                             gtk::Button {
-                                                set_icon_name: icon_name::FOLDER_OPEN_FILLED,
+                                                set_icon_name: icon_names::FOLDER_OPEN_FILLED,
                                                 set_css_classes: &["circular", "accent"],
                                                 set_valign: gtk::Align::Center,
                                                 set_tooltip: fl!("select-directory"),
@@ -262,7 +262,7 @@ impl AsyncComponent for PreferencesModel {
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
                                             gtk::Button {
-                                                set_icon_name: icon_name::PLUS,
+                                                set_icon_name: icon_names::PLUS,
                                                 set_css_classes: &["circular", "accent"],
                                                 set_valign: gtk::Align::Center,
                                                 set_tooltip: fl!("add-hash"),
@@ -279,7 +279,7 @@ impl AsyncComponent for PreferencesModel {
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
                                             gtk::Button {
-                                                set_icon_name: icon_name::PLUS,
+                                                set_icon_name: icon_names::PLUS,
                                                 set_css_classes: &["circular", "accent"],
                                                 set_valign: gtk::Align::Center,
                                                 set_tooltip: fl!("add-phash"),
@@ -296,7 +296,7 @@ impl AsyncComponent for PreferencesModel {
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
                                             gtk::Button {
-                                                set_icon_name: icon_name::PLUS,
+                                                set_icon_name: icon_names::PLUS,
                                                 set_css_classes: &["circular", "accent"],
                                                 set_valign: gtk::Align::Center,
                                                 set_tooltip: fl!("add-keyword"),

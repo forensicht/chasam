@@ -11,7 +11,7 @@ use relm4::{
     ComponentController, ComponentSender,
 };
 use relm4_components::open_dialog::*;
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct SearchBarModel {
     open_dialog: Controller<OpenDialog>,
@@ -58,7 +58,7 @@ impl Component for SearchBarModel {
                 set_hexpand: true,
                 set_halign: gtk::Align::Fill,
                 set_placeholder_text: Some(fl!("directory")),
-                set_secondary_icon_name: Some(icon_name::FOLDER_OPEN_FILLED),
+                set_secondary_icon_name: Some(icon_names::FOLDER_OPEN_FILLED),
                 set_secondary_icon_tooltip_text: Some(fl!("select-directory")),
                 connect_icon_release[sender] => move |_, icon_position| {
                     if icon_position == gtk::EntryIconPosition::Secondary {
@@ -70,7 +70,7 @@ impl Component for SearchBarModel {
             append = &gtk::Button {
                 #[watch]
                 set_visible: model.stopped,
-                set_icon_name: icon_name::LOUPE_LARGE,
+                set_icon_name: icon_names::LOUPE_LARGE,
                 set_tooltip_text: Some(fl!("search")),
                 set_css_classes: &["suggested-action"],
                 connect_clicked => SearchBarInput::StartSearch,
@@ -79,7 +79,7 @@ impl Component for SearchBarModel {
             append = &gtk::Button {
                 #[watch]
                 set_visible: !model.stopped,
-                set_icon_name: icon_name::STOP_LARGE,
+                set_icon_name: icon_names::STOP_LARGE,
                 set_tooltip_text: Some(fl!("stop")),
                 set_css_classes: &["destructive-action"],
                 connect_clicked => SearchBarInput::StopSearch,

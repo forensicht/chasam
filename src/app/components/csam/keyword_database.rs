@@ -12,12 +12,11 @@ use relm4::{
     component::{AsyncComponent, AsyncComponentParts},
     gtk::{
         self,
-        glib::ToValue,
-        prelude::{EntryBufferExtManual, EntryExt, TextBufferExt, TextBufferExtManual},
+        prelude::{EntryBufferExtManual, EntryExt, TextBufferExt, TextBufferExtManual, ToValue},
     },
     AsyncComponentSender, RelmWidgetExt,
 };
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct KeywordDatabaseModel {
     preference: models::Preference,
@@ -77,7 +76,7 @@ impl AsyncComponent for KeywordDatabaseModel {
                         set_header_suffix = &gtk::Box {
                             set_css_classes: &["linked"],
                             gtk::Button {
-                                set_icon_name: icon_name::SAVE_FILLED,
+                                set_icon_name: icon_names::SAVE_FILLED,
                                 set_css_classes: &["circular", "suggested-action"],
                                 set_valign: gtk::Align::Center,
                                 set_tooltip: fl!("save-keywords"),
@@ -89,7 +88,7 @@ impl AsyncComponent for KeywordDatabaseModel {
                             set_placeholder_text: Some(fl!("enter-keyword")),
                             set_hexpand: true,
                             set_margin_bottom: 6,
-                            set_secondary_icon_name: Some(icon_name::PLUS_LARGE),
+                            set_secondary_icon_name: Some(icon_names::PLUS_LARGE),
                             set_secondary_icon_tooltip_text: Some(fl!("add-keyword")),
                             connect_icon_release[sender] => move |_, icon_position| {
                                 if icon_position == gtk::EntryIconPosition::Secondary {

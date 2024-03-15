@@ -25,7 +25,7 @@ use relm4::{
     main_adw_application, view, AsyncComponentSender, ComponentBuilder, ComponentController,
     Controller, RelmWidgetExt,
 };
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct App {
     sidebar: AsyncController<SidebarModel>,
@@ -110,7 +110,7 @@ impl AsyncComponent for App {
                             gtk::MenuButton {
                                 set_valign: gtk::Align::Center,
                                 set_css_classes: &["flat"],
-                                set_icon_name: icon_name::MENU,
+                                set_icon_name: icon_names::MENU,
                                 set_tooltip: fl!("menu"),
                                 set_menu_model: Some(&primary_menu),
                             },

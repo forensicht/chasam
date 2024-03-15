@@ -11,7 +11,7 @@ use relm4::{
     prelude::*,
     ComponentSender, MessageBroker,
 };
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub static SELECT_BROKER: MessageBroker<ToolbarInput> = MessageBroker::new();
 
@@ -76,7 +76,7 @@ impl Component for ToolbarModel {
                 set_halign: gtk::Align::Start,
 
                 gtk::Button {
-                    set_icon_name: icon_name::MINUS,
+                    set_icon_name: icon_names::MINUS,
                     set_tooltip: fl!("deselect-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
@@ -85,7 +85,7 @@ impl Component for ToolbarModel {
                 },
 
                 gtk::Button {
-                    set_icon_name: icon_name::CHECKMARK,
+                    set_icon_name: icon_names::CHECKMARK,
                     set_tooltip: fl!("select-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
@@ -118,7 +118,7 @@ impl Component for ToolbarModel {
                 set_spacing: 6,
 
                 gtk::Button {
-                    set_icon_name: icon_name::MINUS,
+                    set_icon_name: icon_names::MINUS,
                     set_tooltip: fl!("zoom-out"),
                     add_css_class: "circular",
                     connect_clicked[sender] => move |_| {
@@ -127,7 +127,7 @@ impl Component for ToolbarModel {
                 },
 
                 gtk::Button {
-                    set_icon_name: icon_name::PLUS,
+                    set_icon_name: icon_names::PLUS,
                     set_tooltip: fl!("zoom-in"),
                     add_css_class: "circular",
                     connect_clicked[sender] => move |_| {
@@ -186,7 +186,7 @@ impl Component for ToolbarModel {
                 set_spacing: 6,
 
                 append = &gtk::Button {
-                    set_icon_name: icon_name::FILTER_DISMISS_FILLED,
+                    set_icon_name: icon_names::FILTER_DISMISS_FILLED,
                     set_tooltip: fl!("clean-filters"),
                     add_css_class: "flat",
                     connect_clicked => ToolbarInput::CleanFilters,

@@ -13,7 +13,7 @@ use relm4::{
     gtk, AsyncComponentSender, ComponentController, RelmWidgetExt,
 };
 use relm4_components::open_dialog::*;
-use relm4_icons::icon_name;
+use relm4_icons::icon_names;
 
 pub struct MD5DatabaseModel {
     open_dialog: Controller<OpenDialog>,
@@ -75,7 +75,7 @@ impl AsyncComponent for MD5DatabaseModel {
                         set_header_suffix = &gtk::Box {
                             set_css_classes: &["linked"],
                             gtk::Button {
-                                set_icon_name: icon_name::SAVE_FILLED,
+                                set_icon_name: icon_names::SAVE_FILLED,
                                 set_css_classes: &["circular", "suggested-action"],
                                 set_valign: gtk::Align::Center,
                                 set_tooltip: fl!("generate-database"),
@@ -91,7 +91,7 @@ impl AsyncComponent for MD5DatabaseModel {
                             add_suffix = &gtk::Box {
                                 set_css_classes: &["linked"],
                                 gtk::Button {
-                                    set_icon_name: icon_name::FOLDER_OPEN_FILLED,
+                                    set_icon_name: icon_names::FOLDER_OPEN_FILLED,
                                     set_css_classes: &["circular", "accent"],
                                     set_valign: gtk::Align::Center,
                                     set_tooltip: fl!("select-directory"),

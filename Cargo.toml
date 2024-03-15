@@ -19,7 +19,7 @@ members = ["core"]
 strip = true
 
 [profile.test]
-opt-level = 3
+opt-level = 1
 
 [dependencies]
 i18n-embed-fl = "0.8.0"
@@ -38,10 +38,6 @@ bytes = "1.5.0"
 [dependencies.core_chasam]
 path = "core"
 
-[dependencies.tokio]
-version = "1.36"
-features = ["time"]
-
 [dependencies.serde]
 version = "1.0"
 features = ["derive"]
@@ -54,45 +50,15 @@ features = ["debug-embed"]
 version = "0.14.1"
 features = ["fluent-system", "desktop-requester"]
 
-# [dependencies.relm4]
-# version = "0.7.0-rc.1"
-# features = ["macros", "libadwaita", "gnome_44"]
-
-# [dependencies.relm4-components]
-# version = "0.7.0-rc.1"
-
 [dependencies.relm4]
-git = "https://github.com/tsmweb/Relm4.git"
+version = "0.8.1"
 features = ["macros", "libadwaita", "gnome_44"]
 
 [dependencies.relm4-components]
-git = "https://github.com/tsmweb/Relm4.git"
+version = "0.8.1"
 
 [dependencies.relm4-icons]
-version = "0.7.0-alpha.2"
-features = [
-    "menu",
-    "loupe-large",
-    "stop-large",
-    "entry-clear",
-    "plus",
-    "minus",
-    "checkmark",
-    "cameras",
-    "play-large",
-    "image",
-    "pencil-and-paper",
-    "plus-large",
-    "minus-large",
-    "file-manager",
-    "stamp",
-    "parent",
-    "harddisk",
-    "filter-dismiss-filled",
-    "folder-open-filled",
-    "save-filled",
-    "configure",
-]
+version = "0.8.2"
 
 [build-dependencies]
 glib-build-tools = "0.19.0"
