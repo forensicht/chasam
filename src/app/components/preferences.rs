@@ -8,7 +8,6 @@ use crate::app::components::csam::{
 };
 
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use relm4::{
     adw,
@@ -338,14 +337,10 @@ impl AsyncComponent for PreferencesModel {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let mut preference = models::Preference::default();
-
-        if let Ok(settings_toml) = settings::get_settings() {
-            let color_scheme = settings_toml.theme;
-            let language = models::Language::from_str(settings_toml.language.as_str()).unwrap();
-            let database_path = settings_toml.database_path.as_str();
-            preference = models::Preference::new(color_scheme, language, database_path);
-        }
+        let preference = match settings::PREFERENCES.lock() {
+            Ok(preference) => preference.clone(),
+            _ => models::Preference::default(),
+        };
 
         let open_dialog_settings = OpenDialogSettings {
             folder_mode: true,
@@ -364,23 +359,26 @@ impl AsyncComponent for PreferencesModel {
                 OpenDialogResponse::Cancel => PreferencesInput::Ignore,
             });
 
-        let md5_database_controller = MD5DatabaseModel::builder()
-            .launch(preference.clone())
-            .forward(sender.input_sender(), |output| match output {
-                MD5DatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-            });
+        let md5_database_controller =
+            MD5DatabaseModel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |output| match output {
+                    MD5DatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+                });
 
-        let phash_database_controller = PHashDatabaseModel::builder()
-            .launch(preference.clone())
-            .forward(sender.input_sender(), |output| match output {
-                PHashDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-            });
+        let phash_database_controller =
+            PHashDatabaseModel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |output| match output {
+                    PHashDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+                });
 
-        let keyword_database_controller = KeywordDatabaseModel::builder()
-            .launch(preference.clone())
-            .forward(sender.input_sender(), |output| match output {
-                KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-            });
+        let keyword_database_controller =
+            KeywordDatabaseModel::builder()
+                .launch(())
+                .forward(sender.input_sender(), |output| match output {
+                    KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+                });
 
         let model = PreferencesModel {
             open_dialog,

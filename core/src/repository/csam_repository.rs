@@ -61,6 +61,24 @@ impl csam::Repository for CsamRepository {
             .filter(|&distance| distance <= max_distance)
             .min()
     }
+
+    fn count_keyword(&self) -> usize {
+        self.keyword_store.read().unwrap().len()
+    }
+
+    fn count_hash(&self) -> usize {
+        self.hash_store.read().unwrap().len()
+    }
+
+    fn count_phash(&self) -> usize {
+        self.phash_store.read().unwrap().len()
+    }
+
+    fn clear(&self) {
+        self.keyword_store.write().unwrap().clear();
+        self.hash_store.write().unwrap().clear();
+        self.phash_store.write().unwrap().clear();
+    }
 }
 
 #[cfg(test)]

@@ -1,14 +1,20 @@
 use anyhow::{Context, Result};
 use i18n_embed::unic_langid::LanguageIdentifier;
+use lazy_static::lazy_static;
 use relm4::adw;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
+use std::sync::Mutex;
 use toml;
 
 use super::localization;
 use crate::app::models::{ColorScheme, Preference};
+
+lazy_static! {
+    pub static ref PREFERENCES: Mutex<Preference> = Mutex::new(Preference::default());
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SettingsToml {
@@ -22,13 +28,21 @@ pub struct SettingsToml {
 
 pub(crate) fn init() -> Result<()> {
     let settings_toml = get_settings()?;
+
+    {
+        let mut preference = PREFERENCES.lock().unwrap();
+        preference.set_color_scheme(settings_toml.theme);
+        preference.set_language(&settings_toml.language);
+        preference.set_database_path(&settings_toml.database_path);
+    }
+
     set_localization(settings_toml.language)?;
     set_color_scheme(settings_toml.theme);
 
     Ok(())
 }
 
-pub(crate) fn get_settings() -> Result<SettingsToml> {
+fn get_settings() -> Result<SettingsToml> {
     let toml_path = env::current_dir()?.join("settings.toml");
     let toml_str = fs::read_to_string(toml_path).context("Failed to read settings.toml")?;
     let settings_toml: SettingsToml =
@@ -79,6 +93,11 @@ pub(crate) async fn save_preferences(preference: &Preference) -> Result<()> {
             .to_string(),
     };
     set_settings(&settings_toml).context("Failed to save preferences.")?;
+
+    let mut preference = PREFERENCES.lock().unwrap();
+    preference.set_color_scheme(settings_toml.theme);
+    preference.set_language(&settings_toml.language);
+    preference.set_database_path(&settings_toml.database_path);
 
     Ok(())
 }

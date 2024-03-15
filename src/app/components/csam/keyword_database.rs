@@ -1,4 +1,3 @@
-use crate::app::models;
 use crate::fl;
 
 use relm4::{
@@ -19,7 +18,6 @@ use relm4::{
 use relm4_icons::icon_names;
 
 pub struct KeywordDatabaseModel {
-    preference: models::Preference,
     entry_buffer: gtk::EntryBuffer,
     text_buffer: gtk::TextBuffer,
 }
@@ -37,7 +35,7 @@ pub enum KeywordDatabaseOutput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for KeywordDatabaseModel {
-    type Init = models::Preference;
+    type Init = ();
     type Input = KeywordDatabaseInput;
     type Output = KeywordDatabaseOutput;
     type CommandOutput = ();
@@ -120,7 +118,7 @@ impl AsyncComponent for KeywordDatabaseModel {
     }
 
     async fn init(
-        preference: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -128,7 +126,6 @@ impl AsyncComponent for KeywordDatabaseModel {
         text_buffer.create_tag(Some("gray_bg"), &[("background", &"lightgray".to_value())]);
 
         let model = KeywordDatabaseModel {
-            preference,
             entry_buffer: gtk::EntryBuffer::default(),
             text_buffer,
         };

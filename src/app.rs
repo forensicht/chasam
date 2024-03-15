@@ -11,7 +11,7 @@ use crate::app::components::{
 };
 use crate::fl;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
@@ -269,14 +269,20 @@ impl AsyncComponent for App {
 }
 
 async fn load_database() -> Result<core_chasam::csam::SearchMedia> {
+    use crate::app::config::settings;
     use core_chasam::{
         csam::{self, SearchMedia},
         repository::CsamRepository,
     };
 
+    let db_path = match settings::PREFERENCES.lock() {
+        Ok(preference) => preference.database_path.clone(),
+        Err(err) => bail!("Could not load csam database. Error {err}"),
+    };
+
     relm4::tokio::task::spawn_blocking(move || {
         let repository = std::sync::Arc::new(CsamRepository::new());
-        csam::load_csam_database(repository.clone())
+        csam::load_csam_database(db_path, repository.clone())
             .with_context(|| "Could not load csam database.")?;
         let service = SearchMedia::new(repository.clone());
         Ok(service)

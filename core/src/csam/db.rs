@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use std::fs::File;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
@@ -9,7 +10,6 @@ use std::sync::{
     Arc, RwLock,
 };
 use std::thread::{self, JoinHandle};
-use std::{env, fs::File};
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
@@ -17,12 +17,12 @@ use crate::utils;
 
 use super::Repository;
 
-const PATH_CSAM_DATABASE: &str = "csam_db";
 const FILE_HASH: &str = "hash.txt";
 const FILE_KEYWORD: &str = "keyword.txt";
 const FILE_PHASH: &str = "phash.txt";
 
 pub fn create_phash_database<P>(
+    db_path: PathBuf,
     root: P,
     progress_sender: Sender<usize>,
     stopped: Arc<RwLock<bool>>,
@@ -32,7 +32,7 @@ where
 {
     let (phash_sender, phash_receiver) = mpsc::channel::<String>();
 
-    write_phash_database(phash_receiver, progress_sender)
+    write_phash_database(db_path, phash_receiver, progress_sender)
         .with_context(|| "Could not create perceptual hash database.")?;
 
     {
@@ -89,19 +89,16 @@ where
 
 // Worker writing the perceptual hashes to the file.
 fn write_phash_database(
+    db_path: PathBuf,
     phash_receiver: Receiver<String>,
     progress_sender: Sender<usize>,
 ) -> Result<()> {
-    let base_path = env::current_dir()
-        .with_context(|| "could not get current dir")?
-        .join(PATH_CSAM_DATABASE);
-
-    if !base_path.exists() {
-        fs::create_dir_all(&base_path)
-            .with_context(|| format!("Could not create `{}` path", base_path.display()))?;
+    if !db_path.exists() {
+        fs::create_dir_all(&db_path)
+            .with_context(|| format!("Could not create `{}` path", db_path.display()))?;
     }
 
-    let phash_path = base_path.join(FILE_PHASH);
+    let phash_path = db_path.join(FILE_PHASH);
     let file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -151,20 +148,16 @@ fn is_image(entry: &Path) -> bool {
     }
 }
 
-pub fn load_csam_database(repository: Arc<dyn Repository>) -> Result<()> {
-    let base_path = env::current_dir()
-        .with_context(|| "could not get current dir")?
-        .parent()
-        .with_context(|| "could not get current dir")?
-        .join(PATH_CSAM_DATABASE);
+pub fn load_csam_database(database_path: PathBuf, repository: Arc<dyn Repository>) -> Result<()> {
+    repository.clear();
 
-    let path = base_path.join(FILE_HASH);
+    let path = database_path.join(FILE_HASH);
     let work_hash = load_hash_database(path, repository.clone());
 
-    let path = base_path.join(FILE_KEYWORD);
+    let path = database_path.join(FILE_KEYWORD);
     let work_keyword = load_keyword_database(path, repository.clone());
 
-    let path = base_path.join(FILE_PHASH);
+    let path = database_path.join(FILE_PHASH);
     let work_phash = load_phash_database(path, repository.clone());
 
     match work_hash.join() {
@@ -230,12 +223,13 @@ mod tests {
 
     #[test]
     fn test_create_phash_database() {
+        let db_path = PathBuf::from("D:/csam/");
         let root = "D:/images_test/target/original";
         let (send, recv) = mpsc::channel::<usize>();
         let stopped = Arc::new(RwLock::new(false));
         let mut total: usize = 0;
 
-        match create_phash_database(root, send, stopped.clone()) {
+        match create_phash_database(db_path, root, send, stopped.clone()) {
             Ok(size) => {
                 total = size;
                 println!("Total files found: {}", size);
@@ -250,9 +244,10 @@ mod tests {
 
     #[test]
     fn test_load_csam_database() {
+        let db_path = PathBuf::from("D:/csam/");
         let repo = Arc::new(CsamRepository::new());
 
-        match load_csam_database(repo.clone()) {
+        match load_csam_database(db_path, repo.clone()) {
             Ok(_) => {
                 let filename = "File name 13 year old test xpto.";
                 let keyword = String::from("13 year old");

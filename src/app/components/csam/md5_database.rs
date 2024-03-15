@@ -1,4 +1,3 @@
-use crate::app::models;
 use crate::fl;
 
 use std::path::PathBuf;
@@ -18,7 +17,6 @@ use relm4_icons::icon_names;
 pub struct MD5DatabaseModel {
     open_dialog: Controller<OpenDialog>,
     media_path: PathBuf,
-    preference: models::Preference,
 }
 
 #[derive(Debug)]
@@ -36,7 +34,7 @@ pub enum MD5DatabaseOutput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for MD5DatabaseModel {
-    type Init = models::Preference;
+    type Init = ();
     type Input = MD5DatabaseInput;
     type Output = MD5DatabaseOutput;
     type CommandOutput = ();
@@ -106,7 +104,7 @@ impl AsyncComponent for MD5DatabaseModel {
     }
 
     async fn init(
-        preference: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -130,7 +128,6 @@ impl AsyncComponent for MD5DatabaseModel {
         let model = MD5DatabaseModel {
             open_dialog,
             media_path: PathBuf::default(),
-            preference,
         };
         let widgets = view_output!();
 

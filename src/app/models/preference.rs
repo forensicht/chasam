@@ -81,12 +81,25 @@ impl Default for Preference {
 }
 
 impl Preference {
+    #[allow(unused)]
     pub fn new(color_scheme: ColorScheme, language: Language, database_path: &str) -> Self {
         Self {
             color_scheme,
             language,
             database_path: PathBuf::from_str(database_path).unwrap_or_default(),
         }
+    }
+
+    pub fn set_color_scheme(&mut self, color_scheme: ColorScheme) {
+        self.color_scheme = color_scheme;
+    }
+
+    pub fn set_language(&mut self, language: &str) {
+        self.language = Language::from_str(language).unwrap_or(Language::English);
+    }
+
+    pub fn set_database_path(&mut self, database_path: &str) {
+        self.database_path = PathBuf::from_str(database_path).unwrap_or_default();
     }
 }
 

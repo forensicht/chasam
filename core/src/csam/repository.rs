@@ -7,4 +7,8 @@ pub trait Repository: Send + Sync {
     fn contains_keyword(&self, filename: &str) -> Option<String>;
     fn contains_hash(&self, hash: &str) -> bool;
     fn match_phash(&self, phash: u64, max_distance: u32) -> Option<u32>;
+    fn count_keyword(&self) -> usize;
+    fn count_hash(&self) -> usize;
+    fn count_phash(&self) -> usize;
+    fn clear(&self);
 }
