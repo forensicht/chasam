@@ -23,7 +23,7 @@ opt-level = 1
 
 [dependencies]
 i18n-embed-fl = "0.8.0"
-once_cell = "1.18"
+once_cell = "1.19.0"
 strum = "0.26.1"
 strum_macros = "0.26.1"
 tracing = "0.1.39"
@@ -34,7 +34,6 @@ open = "5.0.1"
 toml = "0.8.8"
 chrono = "0.4.34"
 bytes = "1.5.0"
-lazy_static = "1.4.0"
 
 [dependencies.core_chasam]
 path = "core"

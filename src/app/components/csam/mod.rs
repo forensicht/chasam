@@ -5,23 +5,12 @@ pub mod phash_database;
 pub mod statusbar;
 pub mod toolbar;
 
-use crate::app::{
-    components::searchbar::{SearchBarInput, SearchBarModel, SearchBarOutput},
-    factories::media_item::MediaItem,
-    models,
-};
-use crate::fl;
-use core_chasam as service;
-use core_chasam::csam::StateMedia;
-use media_details::{MediaDetailsInput, MediaDetailsModel, MediaDetailsOutput};
-use statusbar::{StatusbarInput, StatusbarModel};
-use toolbar::{ToolbarModel, ToolbarOutput};
-
+use anyhow::Result;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use anyhow::Result;
 use relm4::{
     adw,
     binding::Binding,
@@ -36,6 +25,17 @@ use relm4::{
     Component,
 };
 
+use crate::app::{
+    components::searchbar::{SearchBarInput, SearchBarModel, SearchBarOutput},
+    factories::media_item::MediaItem,
+    models,
+};
+use crate::fl;
+use core_chasam::csam::{Service, StateMedia};
+use media_details::{MediaDetailsInput, MediaDetailsModel, MediaDetailsOutput};
+use statusbar::{StatusbarInput, StatusbarModel};
+use toolbar::{ToolbarModel, ToolbarOutput};
+
 pub struct CsamModel {
     searchbar: Controller<SearchBarModel>,
     toolbar: Controller<ToolbarModel>,
@@ -44,7 +44,7 @@ pub struct CsamModel {
     media_filter: Rc<RefCell<models::MediaFilter>>,
     media_details: Controller<MediaDetailsModel>,
     thumbnail_size: i32,
-    service: service::csam::SearchMedia,
+    service: Arc<Service>,
 }
 
 impl CsamModel {
@@ -54,7 +54,7 @@ impl CsamModel {
         statusbar: Controller<StatusbarModel>,
         media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
         media_details: Controller<MediaDetailsModel>,
-        service: service::csam::SearchMedia,
+        service: Arc<Service>,
     ) -> Self {
         Self {
             searchbar,
@@ -103,7 +103,7 @@ pub enum CsamCommandOutput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for CsamModel {
-    type Init = service::csam::SearchMedia;
+    type Init = ();
     type Input = CsamInput;
     type Output = ();
     type CommandOutput = CsamCommandOutput;
@@ -197,7 +197,7 @@ impl AsyncComponent for CsamModel {
     }
 
     async fn init(
-        service: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -250,6 +250,11 @@ impl AsyncComponent for CsamModel {
                 MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
             });
 
+        let service = core_chasam::ServiceProvider::instance()
+            .lock()
+            .unwrap()
+            .csam_service();
+
         let mut model = CsamModel::new(
             searchbar_controller,
             toolbar_controller,
@@ -283,7 +288,7 @@ impl AsyncComponent for CsamModel {
                 self.on_search(path, &sender).await;
             }
             CsamInput::StopSearch => {
-                self.service.stop();
+                self.service.stop_search_media();
             }
             CsamInput::MediaListSelect(position) => {
                 if let Some(item) = self.media_list_wrapper.get_visible(position) {
@@ -429,7 +434,7 @@ impl CsamModel {
                 .drop_on_shutdown()
         });
 
-        self.service.search(path, tx);
+        self.service.start_search_media(path, tx);
 
         println!("Search OK");
     }

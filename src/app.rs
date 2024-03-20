@@ -3,15 +3,8 @@ pub mod config;
 pub mod factories;
 pub mod models;
 
-use crate::app::components::{
-    about_dialog::AboutDialog,
-    content::{ContentInput, ContentModel},
-    preferences::PreferencesModel,
-    sidebar::{SidebarModel, SidebarOutput},
-};
-use crate::fl;
+use anyhow::{bail, Result};
 
-use anyhow::{bail, Context, Result};
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
@@ -26,6 +19,14 @@ use relm4::{
     Controller, RelmWidgetExt,
 };
 use relm4_icons::icon_names;
+
+use crate::app::components::{
+    about_dialog::AboutDialog,
+    content::{ContentInput, ContentModel},
+    preferences::PreferencesModel,
+    sidebar::{SidebarModel, SidebarOutput},
+};
+use crate::fl;
 
 pub struct App {
     sidebar: AsyncController<SidebarModel>,
@@ -175,12 +176,12 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let service = match load_database().await {
-            Ok(service) => service,
+        match load_database().await {
             Err(err) => {
                 tracing::error!("{}", err);
                 std::process::exit(1);
             }
+            _ => {}
         };
 
         let preferences: &str = fl!("preferences");
@@ -196,7 +197,7 @@ impl AsyncComponent for App {
             },
         );
 
-        let content_controller = ContentModel::builder().launch(service).detach();
+        let content_controller = ContentModel::builder().launch(()).detach();
 
         let mut model = App::new(sidebar_controller, content_controller, None, None);
 
@@ -268,24 +269,18 @@ impl AsyncComponent for App {
     }
 }
 
-async fn load_database() -> Result<core_chasam::csam::SearchMedia> {
+async fn load_database() -> Result<()> {
     use crate::app::config::settings;
-    use core_chasam::{
-        csam::{self, SearchMedia},
-        repository::CsamRepository,
-    };
+    use core_chasam::ServiceProvider;
 
     let db_path = match settings::PREFERENCES.lock() {
         Ok(preference) => preference.database_path.clone(),
         Err(err) => bail!("Could not load csam database. Error {err}"),
     };
 
-    relm4::tokio::task::spawn_blocking(move || {
-        let repository = std::sync::Arc::new(CsamRepository::new());
-        csam::load_csam_database(db_path, repository.clone())
-            .with_context(|| "Could not load csam database.")?;
-        let service = SearchMedia::new(repository.clone());
-        Ok(service)
-    })
-    .await?
+    let service_provider = ServiceProvider::instance().lock().unwrap();
+    let csam_service = service_provider.csam_service();
+    csam_service.load_database(db_path).await?;
+
+    Ok(())
 }

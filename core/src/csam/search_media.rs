@@ -1,12 +1,12 @@
-use super::media::Media;
-use super::Repository;
-use crate::utils;
-
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use threadpool::ThreadPool;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use walkdir::WalkDir;
+
+use super::media::Media;
+use super::Repository;
+use crate::utils;
 
 #[derive(Debug)]
 pub enum StateMedia {
@@ -17,21 +17,21 @@ pub enum StateMedia {
 }
 
 pub struct SearchMedia {
-    stopped: Arc<RwLock<bool>>,
+    stop_flag: Arc<RwLock<bool>>,
     repository: Arc<dyn Repository>,
 }
 
 impl SearchMedia {
     pub fn new(repository: Arc<dyn Repository>) -> Self {
         SearchMedia {
-            stopped: Arc::new(RwLock::new(false)),
+            stop_flag: Arc::new(RwLock::new(false)),
             repository,
         }
     }
 
     pub fn search(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
-        *self.stopped.write().unwrap() = false;
-        let stopped = self.stopped.clone();
+        *self.stop_flag.write().unwrap() = false;
+        let stop_flag = self.stop_flag.clone();
         let repository = self.repository.clone();
         let state_sender = state_sender.clone();
 
@@ -50,32 +50,31 @@ impl SearchMedia {
                 .filter_map(|e| e.ok())
                 .filter(|e| !e.file_type().is_dir() && SearchMedia::is_media(e.path()))
             {
-                if *stopped.read().unwrap() {
+                if *stop_flag.read().unwrap() {
                     break;
                 }
 
                 found_files += 1;
 
-                let entry = entry.clone();
-                let c_stopped = stopped.clone();
+                let c_stop_flag = stop_flag.clone();
                 let c_repository = repository.clone();
                 let c_media_sender = media_sender.clone();
                 let c_state_sender = state_sender.clone();
 
                 thread_pool.execute(move || {
-                    if *c_stopped.read().unwrap() {
+                    if *c_stop_flag.read().unwrap() {
                         return;
                     }
 
-                    match Media::new(entry, c_repository) {
+                    match Media::new(c_repository, entry) {
                         Ok(media) => {
                             c_media_sender
                                 .blocking_send(media)
                                 .expect("could not send `Media`");
                         }
-                        Err(error) => {
+                        Err(err) => {
                             c_state_sender
-                                .blocking_send(StateMedia::Err(error))
+                                .blocking_send(StateMedia::Err(err))
                                 .expect("could not send `StateMedia::Err`");
                         }
                     }
@@ -99,7 +98,7 @@ impl SearchMedia {
     }
 
     pub fn stop(&self) {
-        *self.stopped.write().unwrap() = true;
+        *self.stop_flag.write().unwrap() = true;
     }
 
     // Asyncronous function responsible for notifying the search result.
@@ -129,7 +128,7 @@ impl SearchMedia {
                     .expect("could not send `StateMedia::Ok`");
             }
 
-            // drop(state_sender);
+            drop(state_sender);
         });
     }
 

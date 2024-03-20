@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use i18n_embed::unic_langid::LanguageIdentifier;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use relm4::adw;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -12,9 +12,7 @@ use toml;
 use super::localization;
 use crate::app::models::{ColorScheme, Preference};
 
-lazy_static! {
-    pub static ref PREFERENCES: Mutex<Preference> = Mutex::new(Preference::default());
-}
+pub static PREFERENCES: Lazy<Mutex<Preference>> = Lazy::new(|| Mutex::new(Preference::default()));
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SettingsToml {

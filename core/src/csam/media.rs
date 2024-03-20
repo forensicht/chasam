@@ -30,7 +30,7 @@ pub struct Media {
 }
 
 impl Media {
-    pub fn new(entry: DirEntry, repository: Arc<dyn Repository>) -> Result<Self> {
+    pub fn new(repository: Arc<dyn Repository>, entry: DirEntry) -> Result<Self> {
         let metadata = entry
             .metadata()
             .with_context(|| "could not get file metadata")?;
@@ -82,7 +82,7 @@ impl Media {
 
         // checks if the media is in the CSAM database
         let (match_type, distance_hamming) =
-            match Media::find_csam(&name, &md5_hash, phash, media_type, repository.clone()) {
+            match Media::find_csam(repository.clone(), &name, &md5_hash, phash, media_type) {
                 Some((match_type, distance_hamming)) => (match_type, distance_hamming),
                 None => (String::new(), 0u32),
             };
@@ -104,16 +104,16 @@ impl Media {
     }
 
     fn find_csam(
+        repository: Arc<dyn Repository>,
         name: &str,
         hash: &str,
         phash: u64,
         media_type: MediaType,
-        repository: Arc<dyn Repository>,
     ) -> Option<(String, u32)> {
-        if let Some(hash) = Media::find_csam_by_hash(hash, repository.clone()) {
+        if let Some(hash) = Media::find_csam_by_hash(repository.clone(), hash) {
             return Some((hash, 0));
         }
-        if let Some(keyword) = Media::find_csam_by_keyword(name, repository.clone()) {
+        if let Some(keyword) = Media::find_csam_by_keyword(repository.clone(), name) {
             return Some((keyword, 0));
         }
         if media_type == MediaType::Video {
@@ -122,27 +122,27 @@ impl Media {
         if phash == 0 {
             return None;
         }
-        if let Some(distance) = Media::find_csam_by_phash(phash, repository.clone()) {
+        if let Some(distance) = Media::find_csam_by_phash(repository.clone(), phash) {
             return Some(("chHash".to_string(), distance));
         }
         None
     }
 
-    fn find_csam_by_hash(hash: &str, repository: Arc<dyn Repository>) -> Option<String> {
+    fn find_csam_by_hash(repository: Arc<dyn Repository>, hash: &str) -> Option<String> {
         if repository.contains_hash(hash) {
             return Some("MD5".to_string());
         }
         None
     }
 
-    fn find_csam_by_keyword(name: &str, repository: Arc<dyn Repository>) -> Option<String> {
+    fn find_csam_by_keyword(repository: Arc<dyn Repository>, name: &str) -> Option<String> {
         if let Some(keyword) = repository.contains_keyword(name) {
             return Some(format!("keyword [{}]", keyword));
         }
         None
     }
 
-    fn find_csam_by_phash(phash: u64, repository: Arc<dyn Repository>) -> Option<u32> {
+    fn find_csam_by_phash(repository: Arc<dyn Repository>, phash: u64) -> Option<u32> {
         repository.match_phash(phash, MAX_DISTANCE_HAMMING)
     }
 }
