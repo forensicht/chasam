@@ -1,6 +1,6 @@
 use crate::fl;
 
-use core_chasam::csam::MAX_DISTANCE_HAMMING;
+use core_chasam::csam::Media;
 
 use relm4::{
     component::{Component, ComponentParts},
@@ -526,7 +526,9 @@ impl Component for ToolbarModel {
                 widgets.chk_video.set_active(true);
                 widgets.chk_all_size.set_active(true);
                 widgets.search_entry.set_text("");
-                widgets.scale_hamming.set_value(MAX_DISTANCE_HAMMING as f64);
+                widgets
+                    .scale_hamming
+                    .set_value(Media::MAX_DISTANCE_HAMMING as f64);
             }
             ToolbarInput::SelectedItem(is_selected) => {
                 if is_selected {

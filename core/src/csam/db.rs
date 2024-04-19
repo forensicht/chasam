@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 
 use crate::utils;
 
-use super::Repository;
+use super::repository::Repository;
 
 const FILE_HASH: &str = "hash.txt";
 const FILE_KEYWORD: &str = "keyword.txt";
@@ -50,10 +50,8 @@ where
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir() && self::is_image(e.path()))
     {
-        {
-            if *stopped.read().unwrap() {
-                break;
-            }
+        if *stopped.read().unwrap() {
+            break;
         }
 
         count_files += 1;
@@ -61,10 +59,8 @@ where
         let c_phash_sender = phash_sender.clone();
 
         thread_pool.execute(move || {
-            {
-                if *stopped.read().unwrap() {
-                    return;
-                }
+            if *stopped.read().unwrap() {
+                return;
             }
 
             match utils::media::get_file_perceptual_hash(entry.path()) {
@@ -148,17 +144,17 @@ fn is_image(entry: &Path) -> bool {
     }
 }
 
-pub fn load_csam_database(database_path: PathBuf, repository: Arc<dyn Repository>) -> Result<()> {
-    repository.clear();
+pub fn load_csam_database(database_path: PathBuf, repo: Arc<dyn Repository>) -> Result<()> {
+    repo.clear();
 
     let path = database_path.join(FILE_HASH);
-    let work_hash = load_hash_database(path, repository.clone());
+    let work_hash = load_hash_database(path, repo.clone());
 
     let path = database_path.join(FILE_KEYWORD);
-    let work_keyword = load_keyword_database(path, repository.clone());
+    let work_keyword = load_keyword_database(path, repo.clone());
 
     let path = database_path.join(FILE_PHASH);
-    let work_phash = load_phash_database(path, repository.clone());
+    let work_phash = load_phash_database(path, repo.clone());
 
     match work_hash.join() {
         Err(_) => bail!("Could not load CSAM hash database."),
@@ -178,37 +174,37 @@ pub fn load_csam_database(database_path: PathBuf, repository: Arc<dyn Repository
     Ok(())
 }
 
-fn load_hash_database(path: PathBuf, repository: Arc<dyn Repository>) -> JoinHandle<()> {
+fn load_hash_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
     thread::spawn(move || match File::open(&path) {
         Ok(file) => {
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
-                repository.add_hash(line);
+                repo.add_hash(line);
             }
         }
         Err(err) => tracing::error!("Could not open {} : {}", path.display(), err),
     })
 }
 
-fn load_keyword_database(path: PathBuf, repository: Arc<dyn Repository>) -> JoinHandle<()> {
+fn load_keyword_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
     thread::spawn(move || match File::open(&path) {
         Ok(file) => {
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
-                repository.add_keyword(line);
+                repo.add_keyword(line);
             }
         }
         Err(err) => tracing::error!("Could not open {} : {}", path.display(), err),
     })
 }
 
-fn load_phash_database(path: PathBuf, repository: Arc<dyn Repository>) -> JoinHandle<()> {
+fn load_phash_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
     thread::spawn(move || match File::open(&path) {
         Ok(file) => {
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
                 if let Ok(hash) = line.parse::<u64>() {
-                    repository.add_phash(hash);
+                    repo.add_phash(hash);
                 }
             }
         }
@@ -219,7 +215,7 @@ fn load_phash_database(path: PathBuf, repository: Arc<dyn Repository>) -> JoinHa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::CsamRepository;
+    use crate::csam::repository::InMemoryRepository;
 
     #[test]
     fn test_create_phash_database() {
@@ -245,7 +241,7 @@ mod tests {
     #[test]
     fn test_load_csam_database() {
         let db_path = PathBuf::from("D:/csam/");
-        let repo = Arc::new(CsamRepository::new());
+        let repo = Arc::new(InMemoryRepository::new());
 
         match load_csam_database(db_path, repo.clone()) {
             Ok(_) => {

@@ -1,4 +1,4 @@
-use super::repository::{Repository, MAX_DISTANCE_HAMMING};
+use super::repository::Repository;
 use crate::utils;
 
 use anyhow::{Context, Result};
@@ -6,8 +6,6 @@ use bytes::Bytes;
 use chrono::Local;
 use std::sync::Arc;
 use walkdir::DirEntry;
-
-pub const THUMBNAIL_SIZE: u32 = 240;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MediaType {
@@ -30,7 +28,10 @@ pub struct Media {
 }
 
 impl Media {
-    pub fn new(repository: Arc<dyn Repository>, entry: DirEntry) -> Result<Self> {
+    pub const THUMBNAIL_SIZE: u32 = 240;
+    pub const MAX_DISTANCE_HAMMING: u32 = 20;
+
+    pub fn new(repo: Arc<dyn Repository>, entry: DirEntry) -> Result<Self> {
         let metadata = entry
             .metadata()
             .with_context(|| "could not get file metadata")?;
@@ -61,7 +62,7 @@ impl Media {
         // make thumbnail
         let (dynamic_img, img_data) = match media_type {
             MediaType::Image => {
-                match utils::media::make_thumbnail_to_vec(&media_path, THUMBNAIL_SIZE) {
+                match utils::media::make_thumbnail_to_vec(&media_path, Self::THUMBNAIL_SIZE) {
                     Ok((img, buf)) => (Some(img), Some(Bytes::from(buf))),
                     Err(err) => {
                         tracing::error!("{} : {}", media_path.as_str(), err);
@@ -82,7 +83,7 @@ impl Media {
 
         // checks if the media is in the CSAM database
         let (match_type, distance_hamming) =
-            match Media::find_csam(repository.clone(), &name, &md5_hash, phash, media_type) {
+            match Media::find_csam(repo.clone(), &name, &md5_hash, phash, media_type) {
                 Some((match_type, distance_hamming)) => (match_type, distance_hamming),
                 None => (String::new(), 0u32),
             };
@@ -104,16 +105,16 @@ impl Media {
     }
 
     fn find_csam(
-        repository: Arc<dyn Repository>,
+        repo: Arc<dyn Repository>,
         name: &str,
         hash: &str,
         phash: u64,
         media_type: MediaType,
     ) -> Option<(String, u32)> {
-        if let Some(hash) = Media::find_csam_by_hash(repository.clone(), hash) {
+        if let Some(hash) = Media::find_csam_by_hash(repo.clone(), hash) {
             return Some((hash, 0));
         }
-        if let Some(keyword) = Media::find_csam_by_keyword(repository.clone(), name) {
+        if let Some(keyword) = Media::find_csam_by_keyword(repo.clone(), name) {
             return Some((keyword, 0));
         }
         if media_type == MediaType::Video {
@@ -122,27 +123,27 @@ impl Media {
         if phash == 0 {
             return None;
         }
-        if let Some(distance) = Media::find_csam_by_phash(repository.clone(), phash) {
+        if let Some(distance) = Media::find_csam_by_phash(repo.clone(), phash) {
             return Some(("chHash".to_string(), distance));
         }
         None
     }
 
-    fn find_csam_by_hash(repository: Arc<dyn Repository>, hash: &str) -> Option<String> {
-        if repository.contains_hash(hash) {
+    fn find_csam_by_hash(repo: Arc<dyn Repository>, hash: &str) -> Option<String> {
+        if repo.contains_hash(hash) {
             return Some("MD5".to_string());
         }
         None
     }
 
-    fn find_csam_by_keyword(repository: Arc<dyn Repository>, name: &str) -> Option<String> {
-        if let Some(keyword) = repository.contains_keyword(name) {
+    fn find_csam_by_keyword(repo: Arc<dyn Repository>, name: &str) -> Option<String> {
+        if let Some(keyword) = repo.contains_keyword(name) {
             return Some(format!("keyword [{}]", keyword));
         }
         None
     }
 
-    fn find_csam_by_phash(repository: Arc<dyn Repository>, phash: u64) -> Option<u32> {
-        repository.match_phash(phash, MAX_DISTANCE_HAMMING)
+    fn find_csam_by_phash(repo: Arc<dyn Repository>, phash: u64) -> Option<u32> {
+        repo.match_phash(phash, Media::MAX_DISTANCE_HAMMING)
     }
 }

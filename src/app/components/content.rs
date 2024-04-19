@@ -9,11 +9,13 @@ use relm4::{
     },
     AsyncComponentSender,
 };
+use std::sync::Arc;
 
 use crate::app::{
     components::{csam::CsamModel, face::FaceModel},
     models::SidebarOption,
 };
+use crate::context::AppContext;
 
 pub struct ContentModel {
     csam: AsyncController<CsamModel>,
@@ -42,7 +44,7 @@ pub enum ContentInput {
 
 #[relm4::component(pub async)]
 impl SimpleAsyncComponent for ContentModel {
-    type Init = ();
+    type Init = Arc<AppContext>;
     type Input = ContentInput;
     type Output = ();
 
@@ -81,11 +83,11 @@ impl SimpleAsyncComponent for ContentModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let csam_controller = CsamModel::builder().launch(()).detach();
+        let csam_controller = CsamModel::builder().launch(ctx).detach();
         let face_controller = FaceModel::builder().launch(()).detach();
 
         let model = ContentModel::new(csam_controller, face_controller, Some(SidebarOption::CSAM));

@@ -1,30 +1,27 @@
 use std::collections::HashSet;
 use std::sync::RwLock;
 
-use crate::csam;
+use super::Repository;
 use crate::utils;
 
 #[derive(Debug)]
-pub struct CsamRepository {
+pub struct InMemoryRepository {
     keyword_store: RwLock<HashSet<String>>,
     hash_store: RwLock<HashSet<String>>,
     phash_store: RwLock<Vec<u64>>,
 }
 
-impl CsamRepository {
+impl InMemoryRepository {
     pub fn new() -> Self {
-        let keyword_store: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
-        let hash_store: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
-        let phash_store: RwLock<Vec<u64>> = RwLock::new(vec![]);
         Self {
-            keyword_store,
-            hash_store,
-            phash_store,
+            keyword_store: RwLock::new(HashSet::new()),
+            hash_store: RwLock::new(HashSet::new()),
+            phash_store: RwLock::new(vec![]),
         }
     }
 }
 
-impl csam::Repository for CsamRepository {
+impl Repository for InMemoryRepository {
     fn add_keyword(&self, keyword: &str) {
         let mut store = self.keyword_store.write().unwrap();
         store.insert(keyword.to_lowercase());
@@ -83,13 +80,11 @@ impl csam::Repository for CsamRepository {
 
 #[cfg(test)]
 mod tests {
-    use self::csam::Repository;
-
     use super::*;
 
     #[test]
     fn test_contains_keyword_should_return_true() {
-        let repo = CsamRepository::new();
+        let repo = InMemoryRepository::new();
         let filename = "File name 13 year old test xpto.";
         let keyword = "13 year old";
         repo.add_keyword(keyword);
@@ -99,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_contains_hash_should_return_true() {
-        let repo = CsamRepository::new();
+        let repo = InMemoryRepository::new();
         let hash = "cd63c80d3ad93dde00213e9b7a621513519c0d90";
         repo.add_hash(hash);
         let result = repo.contains_hash(hash);
@@ -108,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_match_phash_should_return_distance_equals_1() {
-        let repo = CsamRepository::new();
+        let repo = InMemoryRepository::new();
         let phash_1: u64 = 15634510955120228568;
         repo.add_phash(phash_1);
         let phash_2: u64 = 15634510955120226520;

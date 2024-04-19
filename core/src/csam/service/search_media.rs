@@ -1,11 +1,10 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
 use threadpool::ThreadPool;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use walkdir::WalkDir;
 
-use super::media::Media;
-use super::Repository;
+use super::Service;
+use crate::csam::media::Media;
 use crate::utils;
 
 #[derive(Debug)]
@@ -16,23 +15,11 @@ pub enum StateMedia {
     Err(anyhow::Error),
 }
 
-pub struct SearchMedia {
-    stop_flag: Arc<RwLock<bool>>,
-    repository: Arc<dyn Repository>,
-}
-
-impl SearchMedia {
-    pub fn new(repository: Arc<dyn Repository>) -> Self {
-        SearchMedia {
-            stop_flag: Arc::new(RwLock::new(false)),
-            repository,
-        }
-    }
-
-    pub fn search(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
-        *self.stop_flag.write().unwrap() = false;
-        let stop_flag = self.stop_flag.clone();
-        let repository = self.repository.clone();
+impl Service {
+    pub fn search_media(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
+        *self.cancel_flag.write().unwrap() = false;
+        let cancel_flag = self.cancel_flag.clone();
+        let repo = self.repo.clone();
         let state_sender = state_sender.clone();
 
         std::thread::spawn(move || {
@@ -48,16 +35,16 @@ impl SearchMedia {
                 .follow_links(false)
                 .into_iter()
                 .filter_map(|e| e.ok())
-                .filter(|e| !e.file_type().is_dir() && SearchMedia::is_media(e.path()))
+                .filter(|e| !e.file_type().is_dir() && Service::is_media(e.path()))
             {
-                if *stop_flag.read().unwrap() {
+                if *cancel_flag.read().unwrap() {
                     break;
                 }
 
                 found_files += 1;
 
-                let c_stop_flag = stop_flag.clone();
-                let c_repository = repository.clone();
+                let c_stop_flag = cancel_flag.clone();
+                let c_repo = repo.clone();
                 let c_media_sender = media_sender.clone();
                 let c_state_sender = state_sender.clone();
 
@@ -66,7 +53,7 @@ impl SearchMedia {
                         return;
                     }
 
-                    match Media::new(c_repository, entry) {
+                    match Media::new(c_repo, entry) {
                         Ok(media) => {
                             c_media_sender
                                 .blocking_send(media)
@@ -97,8 +84,8 @@ impl SearchMedia {
         });
     }
 
-    pub fn stop(&self) {
-        *self.stop_flag.write().unwrap() = true;
+    pub fn cancel_search_media(&self) {
+        *self.cancel_flag.write().unwrap() = true;
     }
 
     // Asyncronous function responsible for notifying the search result.

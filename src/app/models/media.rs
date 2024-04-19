@@ -1,8 +1,8 @@
-use crate::fl;
-use core_chasam as core;
-
 use bytes::Bytes;
 use chrono::prelude::*;
+
+use crate::fl;
+use core_chasam;
 
 pub const ZOOM_SIZE: i32 = 20;
 pub const ZOOM_LIMIT: i32 = 240;
@@ -42,14 +42,14 @@ pub struct Media {
     pub thumbnail_size: i32,
 }
 
-impl From<&core::csam::Media> for Media {
-    fn from(media: &core::csam::Media) -> Self {
+impl From<&core_chasam::csam::Media> for Media {
+    fn from(media: &core_chasam::csam::Media) -> Self {
         Self {
             name: media.name.clone(),
             path: media.path.clone(),
             media_type: match media.media_type {
-                core::csam::MediaType::Image => MediaType::Image,
-                core::csam::MediaType::Video => MediaType::Video,
+                core_chasam::csam::MediaType::Image => MediaType::Image,
+                core_chasam::csam::MediaType::Video => MediaType::Video,
             },
             size: media.size,
             last_modified: media.last_modified,
@@ -142,7 +142,7 @@ impl Default for MediaFilter {
             is_size_100: true,
             is_size_500: true,
             is_size_greater_500: true,
-            hamming_distance: core::csam::MAX_DISTANCE_HAMMING,
+            hamming_distance: core_chasam::csam::Media::MAX_DISTANCE_HAMMING,
         }
     }
 }

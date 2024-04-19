@@ -1,6 +1,7 @@
-use super::{actions, resources, settings};
 use anyhow::Result;
 use relm4::gtk;
+
+use super::{actions, resources, settings};
 
 pub fn init() -> Result<()> {
     gtk::init()?;

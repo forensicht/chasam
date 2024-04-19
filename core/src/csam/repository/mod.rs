@@ -1,4 +1,6 @@
-pub const MAX_DISTANCE_HAMMING: u32 = 20;
+pub use in_memory_repository::InMemoryRepository;
+
+mod in_memory_repository;
 
 pub trait Repository: Send + Sync {
     fn add_keyword(&self, keyword: &str);

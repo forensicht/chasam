@@ -17,6 +17,9 @@ members = ["core"]
 
 [profile.release]
 strip = true
+lto = true
+debug = false
+debug-assertions = false
 
 [profile.test]
 opt-level = 1

@@ -4,6 +4,7 @@ pub mod factories;
 pub mod models;
 
 use anyhow::{bail, Result};
+use std::sync::Arc;
 
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
@@ -26,9 +27,11 @@ use crate::app::components::{
     preferences::PreferencesModel,
     sidebar::{SidebarModel, SidebarOutput},
 };
+use crate::context::AppContext;
 use crate::fl;
 
 pub struct App {
+    _ctx: Arc<AppContext>,
     sidebar: AsyncController<SidebarModel>,
     content: AsyncController<ContentModel>,
     preferences: Option<AsyncController<PreferencesModel>>,
@@ -37,12 +40,14 @@ pub struct App {
 
 impl App {
     pub fn new(
+        ctx: Arc<AppContext>,
         sidebar: AsyncController<SidebarModel>,
         content: AsyncController<ContentModel>,
         preferences: Option<AsyncController<PreferencesModel>>,
         about_dialog: Option<Controller<AboutDialog>>,
     ) -> Self {
         Self {
+            _ctx: ctx,
             sidebar,
             content,
             preferences,
@@ -176,7 +181,9 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        match load_database().await {
+        let ctx = Arc::new(AppContext::init());
+
+        match load_database(ctx.clone()).await {
             Err(err) => {
                 tracing::error!("{}", err);
                 std::process::exit(1);
@@ -197,9 +204,9 @@ impl AsyncComponent for App {
             },
         );
 
-        let content_controller = ContentModel::builder().launch(()).detach();
+        let content_controller = ContentModel::builder().launch(ctx.clone()).detach();
 
-        let mut model = App::new(sidebar_controller, content_controller, None, None);
+        let mut model = App::new(ctx, sidebar_controller, content_controller, None, None);
 
         let widgets = view_output!();
 
@@ -269,18 +276,15 @@ impl AsyncComponent for App {
     }
 }
 
-async fn load_database() -> Result<()> {
+async fn load_database(ctx: Arc<AppContext>) -> Result<()> {
     use crate::app::config::settings;
-    use core_chasam::ServiceProvider;
 
     let db_path = match settings::PREFERENCES.lock() {
         Ok(preference) => preference.database_path.clone(),
         Err(err) => bail!("Could not load csam database. Error {err}"),
     };
 
-    let service_provider = ServiceProvider::instance().lock().unwrap();
-    let csam_service = service_provider.csam_service();
-    csam_service.load_database(db_path).await?;
+    ctx.csam_service.load_database(db_path).await?;
 
     Ok(())
 }
