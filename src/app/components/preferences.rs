@@ -1,20 +1,12 @@
-use crate::app::{config::settings, models};
-use crate::fl;
-
-use crate::app::components::csam::{
-    keyword_database::{KeywordDatabaseModel, KeywordDatabaseOutput},
-    md5_database::{MD5DatabaseModel, MD5DatabaseOutput},
-    phash_database::{PHashDatabaseModel, PHashDatabaseOutput},
-};
-
 use std::path::PathBuf;
 
+use num_format::{Locale, ToFormattedString};
 use relm4::{
     adw,
     adw::prelude::{
         ActionRowExt, AdwWindowExt, BoxExt, ButtonExt, CheckButtonExt, ComboRowExt, EditableExt,
-        EntryRowExt, GtkWindowExt, IsA, MessageDialogExt, OrientableExt, PreferencesGroupExt,
-        PreferencesPageExt, PreferencesRowExt, PreferencesWindowExt, WidgetExt,
+        EntryRowExt, GtkWindowExt, OrientableExt, PreferencesGroupExt, PreferencesPageExt,
+        PreferencesRowExt, PreferencesWindowExt, WidgetExt,
     },
     component::{
         AsyncComponent, AsyncComponentController, AsyncComponentParts, AsyncController, Component,
@@ -27,15 +19,33 @@ use relm4::{
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_names;
 
+use crate::app::components::csam::{
+    keyword_database::{KeywordDatabaseModel, KeywordDatabaseOutput},
+    md5_database::{MD5DatabaseModel, MD5DatabaseOutput},
+    phash_database::{PHashDatabaseModel, PHashDatabaseOutput},
+};
+use crate::app::{components::dialogs, config::settings, models};
+use crate::{context::AppContext, fl};
+
 pub struct PreferencesModel {
+    ctx: AppContext,
+    locale: Locale,
     open_dialog: Controller<OpenDialog>,
     preference: models::Preference,
     md5_database: AsyncController<MD5DatabaseModel>,
     phash_database: AsyncController<PHashDatabaseModel>,
     keyword_database: AsyncController<KeywordDatabaseModel>,
-    hash_count: usize,
-    phash_count: usize,
-    keywords_count: usize,
+    hash_count: String,
+    phash_count: String,
+    keywords_count: String,
+}
+
+#[derive(Debug)]
+pub enum InfoType {
+    Hash,
+    PerceptualHash,
+    Keyword,
+    All,
 }
 
 #[derive(Debug)]
@@ -44,6 +54,7 @@ pub enum PreferencesInput {
     OpenFileResponse(PathBuf),
     SetColorScheme(models::ColorScheme),
     SetLanguage(models::Language),
+    UpdateInfoView(InfoType),
     AddHash,
     AddPHash,
     AddKeyword,
@@ -54,7 +65,7 @@ pub enum PreferencesInput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for PreferencesModel {
-    type Init = gtk::Window;
+    type Init = (gtk::Window, AppContext);
     type Input = PreferencesInput;
     type Output = ();
     type CommandOutput = ();
@@ -256,7 +267,7 @@ impl AsyncComponent for PreferencesModel {
                                     adw::ActionRow {
                                         set_title: fl!("hash"),
                                         #[watch]
-                                        set_subtitle: &model.hash_count.to_string(),
+                                        set_subtitle: &model.hash_count,
 
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
@@ -273,7 +284,7 @@ impl AsyncComponent for PreferencesModel {
                                     adw::ActionRow {
                                         set_title: fl!("phash"),
                                         #[watch]
-                                        set_subtitle: &model.phash_count.to_string(),
+                                        set_subtitle: &model.phash_count,
 
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
@@ -290,7 +301,7 @@ impl AsyncComponent for PreferencesModel {
                                     adw::ActionRow {
                                         set_title: fl!("keywords"),
                                         #[watch]
-                                        set_subtitle: &model.keywords_count.to_string(),
+                                        set_subtitle: &model.keywords_count,
 
                                         add_suffix = &gtk::Box {
                                             set_css_classes: &["linked"],
@@ -333,10 +344,12 @@ impl AsyncComponent for PreferencesModel {
     }
 
     async fn init(
-        main_window: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
+        let (main_window, ctx) = init;
+
         let preference = match settings::PREFERENCES.lock() {
             Ok(preference) => preference.clone(),
             _ => models::Preference::default(),
@@ -359,19 +372,25 @@ impl AsyncComponent for PreferencesModel {
                 OpenDialogResponse::Cancel => PreferencesInput::Ignore,
             });
 
-        let md5_database_controller =
-            MD5DatabaseModel::builder()
-                .launch(())
-                .forward(sender.input_sender(), |output| match output {
-                    MD5DatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-                });
+        let md5_database_controller = MD5DatabaseModel::builder().launch(ctx.clone()).forward(
+            sender.input_sender(),
+            |output| match output {
+                MD5DatabaseOutput::GeneratedDatabase => {
+                    PreferencesInput::UpdateInfoView(InfoType::Hash)
+                }
+                MD5DatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            },
+        );
 
-        let phash_database_controller =
-            PHashDatabaseModel::builder()
-                .launch(())
-                .forward(sender.input_sender(), |output| match output {
-                    PHashDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-                });
+        let phash_database_controller = PHashDatabaseModel::builder().launch(ctx.clone()).forward(
+            sender.input_sender(),
+            |output| match output {
+                PHashDatabaseOutput::GeneratedDatabase => {
+                    PreferencesInput::UpdateInfoView(InfoType::PerceptualHash)
+                }
+                PHashDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            },
+        );
 
         let keyword_database_controller =
             KeywordDatabaseModel::builder()
@@ -380,15 +399,35 @@ impl AsyncComponent for PreferencesModel {
                     KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
                 });
 
+        let language = preference.language.to_string();
+        let locale = Locale::from_name(language).expect("Failed to loading language.");
+        let hash_count = ctx
+            .csam_service
+            .count_hash()
+            .await
+            .to_formatted_string(&locale);
+        let phash_count = ctx
+            .csam_service
+            .count_phash()
+            .await
+            .to_formatted_string(&locale);
+        let keywords_count = ctx
+            .csam_service
+            .count_keyword()
+            .await
+            .to_formatted_string(&locale);
+
         let model = PreferencesModel {
+            ctx,
+            locale,
             open_dialog,
             preference,
             md5_database: md5_database_controller,
             phash_database: phash_database_controller,
             keyword_database: keyword_database_controller,
-            hash_count: 0,
-            phash_count: 0,
-            keywords_count: 0,
+            hash_count,
+            phash_count,
+            keywords_count,
         };
 
         let widgets = view_output!();
@@ -407,16 +446,31 @@ impl AsyncComponent for PreferencesModel {
             PreferencesInput::OpenFileRequest => {
                 self.open_dialog.emit(OpenDialogMsg::Open);
             }
-            PreferencesInput::OpenFileResponse(path) => {
-                self.preference.database_path = path;
+            PreferencesInput::OpenFileResponse(db_path) => {
+                self.preference.database_path = db_path.clone();
+                self.save_preferences().await;
+
+                match self.ctx.csam_service.load_database(db_path).await {
+                    Ok(_) => self.update_info_view(InfoType::All).await,
+                    Err(err) => tracing::error!("{}", err),
+                }
             }
             PreferencesInput::SetColorScheme(color_scheme) => {
                 settings::set_color_scheme(color_scheme);
                 self.preference.color_scheme = color_scheme;
+                self.save_preferences().await;
             }
             PreferencesInput::SetLanguage(language) => {
                 self.preference.language = language;
-                self.show_dialog(root);
+                self.save_preferences().await;
+                dialogs::show_info_dialog(
+                    Some(root),
+                    Some(fl!("preferences")),
+                    Some(fl!("message-dialog")),
+                );
+            }
+            PreferencesInput::UpdateInfoView(info_type) => {
+                self.update_info_view(info_type).await;
             }
             PreferencesInput::AddHash => {
                 widgets.leaflet.set_visible_child_name("hash");
@@ -436,28 +490,48 @@ impl AsyncComponent for PreferencesModel {
             PreferencesInput::Ignore => {}
         }
 
-        match settings::save_preferences(&self.preference).await {
-            Err(error) => tracing::error!("{error}"),
-            _ => {}
-        }
-
         self.update_view(widgets, sender);
     }
 }
 
 impl PreferencesModel {
-    fn show_dialog(&self, root: &impl IsA<gtk::Window>) {
-        let dialog = adw::MessageDialog::new(
-            Some(root),
-            Some(fl!("preferences")),
-            Some(fl!("message-dialog")),
-        );
-        dialog.set_transient_for(Some(root));
-        dialog.set_modal(true);
-        dialog.set_destroy_with_parent(false);
-        dialog.add_response("cancel", "_OK");
-        dialog.set_default_response(Some("cancel"));
-        dialog.set_close_response("cancel");
-        dialog.present();
+    async fn save_preferences(&self) {
+        match settings::save_preferences(&self.preference).await {
+            Err(error) => tracing::error!("{error}"),
+            _ => {}
+        }
+    }
+
+    async fn update_info_view(&mut self, info_type: InfoType) {
+        let service = self.ctx.csam_service.clone();
+
+        match info_type {
+            InfoType::Hash => {
+                self.hash_count = service.count_hash().await.to_formatted_string(&self.locale);
+            }
+            InfoType::PerceptualHash => {
+                self.phash_count = service
+                    .count_phash()
+                    .await
+                    .to_formatted_string(&self.locale);
+            }
+            InfoType::Keyword => {
+                self.keywords_count = service
+                    .count_keyword()
+                    .await
+                    .to_formatted_string(&self.locale);
+            }
+            InfoType::All => {
+                self.hash_count = service.count_hash().await.to_formatted_string(&self.locale);
+                self.phash_count = service
+                    .count_phash()
+                    .await
+                    .to_formatted_string(&self.locale);
+                self.keywords_count = service
+                    .count_keyword()
+                    .await
+                    .to_formatted_string(&self.locale);
+            }
+        }
     }
 }

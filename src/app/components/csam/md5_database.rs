@@ -1,12 +1,12 @@
-use crate::fl;
-
 use std::path::PathBuf;
 
 use relm4::{
-    adw,
-    adw::prelude::{
-        BoxExt, ButtonExt, EditableExt, EntryRowExt, OrientableExt, PreferencesGroupExt,
-        PreferencesPageExt, PreferencesRowExt, WidgetExt,
+    adw::{
+        self,
+        prelude::{
+            BoxExt, ButtonExt, EditableExt, EntryRowExt, GtkWindowExt, OrientableExt,
+            PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt, WidgetExt,
+        },
     },
     component::{AsyncComponent, AsyncComponentParts, Component, Controller},
     gtk, AsyncComponentSender, ComponentController, RelmWidgetExt,
@@ -14,8 +14,16 @@ use relm4::{
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_names;
 
+use crate::app::components::progress_dialog::{
+    ProgressDialog, ProgressDialogOutput, ProgressSettings,
+};
+use crate::app::{components::dialogs, config::settings, models};
+use crate::{context::AppContext, fl};
+
 pub struct MD5DatabaseModel {
+    ctx: AppContext,
     open_dialog: Controller<OpenDialog>,
+    progress_dialog: Controller<ProgressDialog>,
     media_path: PathBuf,
 }
 
@@ -23,18 +31,21 @@ pub struct MD5DatabaseModel {
 pub enum MD5DatabaseInput {
     OpenFileRequest,
     OpenFileResponse(PathBuf),
+    GenerateDatabase,
     GoPrevious,
+    Cancel,
     Ignore,
 }
 
 #[derive(Debug)]
 pub enum MD5DatabaseOutput {
+    GeneratedDatabase,
     GoPrevious,
 }
 
 #[relm4::component(pub async)]
 impl AsyncComponent for MD5DatabaseModel {
-    type Init = ();
+    type Init = AppContext;
     type Input = MD5DatabaseInput;
     type Output = MD5DatabaseOutput;
     type CommandOutput = ();
@@ -77,6 +88,7 @@ impl AsyncComponent for MD5DatabaseModel {
                                 set_css_classes: &["circular", "suggested-action"],
                                 set_valign: gtk::Align::Center,
                                 set_tooltip: fl!("generate-database"),
+                                connect_clicked => MD5DatabaseInput::GenerateDatabase,
                             },
                         },
 
@@ -104,7 +116,7 @@ impl AsyncComponent for MD5DatabaseModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -125,8 +137,23 @@ impl AsyncComponent for MD5DatabaseModel {
                 OpenDialogResponse::Cancel => MD5DatabaseInput::Ignore,
             });
 
+        let progress_settings = ProgressSettings {
+            text: String::from(fl!("wait")),
+            secondary_text: Some(String::from(fl!("generating-hash-database"))),
+            cancel_label: String::from(fl!("cancel")),
+        };
+
+        let progress_dialog = ProgressDialog::builder()
+            .transient_for(&root)
+            .launch(progress_settings)
+            .forward(sender.input_sender(), |response| match response {
+                ProgressDialogOutput::Cancel => MD5DatabaseInput::Cancel,
+            });
+
         let model = MD5DatabaseModel {
+            ctx,
             open_dialog,
+            progress_dialog,
             media_path: PathBuf::default(),
         };
         let widgets = view_output!();
@@ -138,7 +165,7 @@ impl AsyncComponent for MD5DatabaseModel {
         &mut self,
         message: Self::Input,
         sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
+        root: &Self::Root,
     ) {
         match message {
             MD5DatabaseInput::OpenFileRequest => {
@@ -146,6 +173,55 @@ impl AsyncComponent for MD5DatabaseModel {
             }
             MD5DatabaseInput::OpenFileResponse(path) => {
                 self.media_path = path;
+            }
+            MD5DatabaseInput::GenerateDatabase => {
+                let window = root.toplevel_window();
+
+                if !self.media_path.exists() {
+                    dialogs::show_info_dialog(
+                        window.as_ref(),
+                        Some(fl!("hash")),
+                        Some(fl!("msg-media-path")),
+                    );
+                    return;
+                }
+
+                let progress_dialog = self.progress_dialog.widget();
+                progress_dialog.present();
+
+                let db_path = {
+                    let preference = match settings::PREFERENCES.lock() {
+                        Ok(preference) => preference.clone(),
+                        _ => models::Preference::default(),
+                    };
+                    preference.database_path.clone()
+                };
+                let media_path = self.media_path.clone();
+
+                match self
+                    .ctx
+                    .csam_service
+                    .create_hash_database(db_path, media_path)
+                    .await
+                {
+                    Ok(count) => {
+                        progress_dialog.close();
+                        dialogs::show_info_dialog(
+                            window.as_ref(),
+                            Some(fl!("hash")),
+                            Some(&format!("{}: {}", fl!("total-hash-generated"), count)),
+                        );
+                        sender
+                            .output(MD5DatabaseOutput::GeneratedDatabase)
+                            .unwrap_or_default();
+                    }
+                    Err(err) => {
+                        tracing::error!("Could not generate MD5 hash database. Error: {}", err)
+                    }
+                }
+            }
+            MD5DatabaseInput::Cancel => {
+                self.ctx.csam_service.cancel_task();
             }
             MD5DatabaseInput::GoPrevious => {
                 sender

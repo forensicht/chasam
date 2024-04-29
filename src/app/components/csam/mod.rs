@@ -9,7 +9,6 @@ use anyhow::Result;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use relm4::{
     adw,
@@ -38,7 +37,7 @@ use statusbar::{StatusbarInput, StatusbarModel};
 use toolbar::{ToolbarModel, ToolbarOutput};
 
 pub struct CsamModel {
-    ctx: Arc<AppContext>,
+    ctx: AppContext,
     searchbar: Controller<SearchBarModel>,
     toolbar: Controller<ToolbarModel>,
     statusbar: Controller<StatusbarModel>,
@@ -50,7 +49,7 @@ pub struct CsamModel {
 
 impl CsamModel {
     pub fn new(
-        ctx: Arc<AppContext>,
+        ctx: AppContext,
         searchbar: Controller<SearchBarModel>,
         toolbar: Controller<ToolbarModel>,
         statusbar: Controller<StatusbarModel>,
@@ -104,7 +103,7 @@ pub enum CsamCommandOutput {
 
 #[relm4::component(pub async)]
 impl AsyncComponent for CsamModel {
-    type Init = Arc<AppContext>;
+    type Init = AppContext;
     type Input = CsamInput;
     type Output = ();
     type CommandOutput = CsamCommandOutput;
@@ -284,7 +283,7 @@ impl AsyncComponent for CsamModel {
                 self.on_search(path, &sender).await;
             }
             CsamInput::StopSearch => {
-                self.ctx.csam_service.cancel_search_media();
+                self.ctx.csam_service.cancel_task();
             }
             CsamInput::MediaListSelect(position) => {
                 if let Some(item) = self.media_list_wrapper.get_visible(position) {

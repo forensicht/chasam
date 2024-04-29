@@ -52,6 +52,13 @@ add-hash-description = Gerar base de dados de hash MD5.
 add-phash-description = Gerar base de dados de hash perceptivo.
 add-keyword-description = Gerar base de dados de palavras-chave.
 enter-keyword = Insira uma palavra-chave...
+progress = Progresso
+wait = Aguarde
+generating-hash-database = Gerando o banco de dados de hash MD5...
+generating-phash-database = Gerando o banco de dados de hash perceptivo...
+msg-media-path = O diretório da mídia não existe.
+total-hash-generated = Total de hash gerado
+total-phash-generated = Total de hash perceptivo gerado
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>

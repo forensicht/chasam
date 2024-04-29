@@ -2,6 +2,8 @@ use std::sync::{Arc, RwLock};
 
 use super::repository::Repository;
 
+mod create_hash_database;
+mod create_phash_database;
 mod load_database;
 mod search_media;
 pub use search_media::*;
@@ -19,15 +21,19 @@ impl Service {
         }
     }
 
-    pub fn count_keyword(&self) -> usize {
+    pub async fn count_keyword(&self) -> usize {
         self.repo.count_keyword()
     }
 
-    pub fn count_hash(&self) -> usize {
+    pub async fn count_hash(&self) -> usize {
         self.repo.count_hash()
     }
 
-    pub fn count_phash(&self) -> usize {
+    pub async fn count_phash(&self) -> usize {
         self.repo.count_phash()
+    }
+
+    pub fn cancel_task(&self) {
+        *self.cancel_flag.write().unwrap() = true;
     }
 }

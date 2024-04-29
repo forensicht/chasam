@@ -4,7 +4,6 @@ pub mod factories;
 pub mod models;
 
 use anyhow::{bail, Result};
-use std::sync::Arc;
 
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
@@ -31,7 +30,7 @@ use crate::context::AppContext;
 use crate::fl;
 
 pub struct App {
-    _ctx: Arc<AppContext>,
+    _ctx: AppContext,
     sidebar: AsyncController<SidebarModel>,
     content: AsyncController<ContentModel>,
     preferences: Option<AsyncController<PreferencesModel>>,
@@ -40,7 +39,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        ctx: Arc<AppContext>,
+        ctx: AppContext,
         sidebar: AsyncController<SidebarModel>,
         content: AsyncController<ContentModel>,
         preferences: Option<AsyncController<PreferencesModel>>,
@@ -181,7 +180,7 @@ impl AsyncComponent for App {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
-        let ctx = Arc::new(AppContext::init());
+        let ctx = AppContext::new();
 
         match load_database(ctx.clone()).await {
             Err(err) => {
@@ -206,12 +205,21 @@ impl AsyncComponent for App {
 
         let content_controller = ContentModel::builder().launch(ctx.clone()).detach();
 
-        let mut model = App::new(ctx, sidebar_controller, content_controller, None, None);
+        let mut model = App::new(
+            ctx.clone(),
+            sidebar_controller,
+            content_controller,
+            None,
+            None,
+        );
 
         let widgets = view_output!();
 
         let preferences_controller = PreferencesModel::builder()
-            .launch(widgets.main_window.upcast_ref::<gtk::Window>().clone())
+            .launch((
+                widgets.main_window.upcast_ref::<gtk::Window>().clone(),
+                ctx.clone(),
+            ))
             .detach();
         model.preferences = Some(preferences_controller);
 
@@ -276,7 +284,7 @@ impl AsyncComponent for App {
     }
 }
 
-async fn load_database(ctx: Arc<AppContext>) -> Result<()> {
+async fn load_database(ctx: AppContext) -> Result<()> {
     use crate::app::config::settings;
 
     let db_path = match settings::PREFERENCES.lock() {

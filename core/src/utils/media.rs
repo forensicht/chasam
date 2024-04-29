@@ -70,7 +70,7 @@ where
     let mut hash: u64 = 0;
     if let Some(p) = path.as_ref().to_str() {
         let img = image::open(path)?;
-        hash = phash::difference_hash(img)?;
+        hash = phash::perception_hash(img, phash::ColorType::Threshold)?;
     }
     Ok(hash)
 }

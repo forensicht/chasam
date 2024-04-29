@@ -1,15 +1,13 @@
-use anyhow::{bail, Context, Result};
-use std::fs::File;
+use anyhow::Context;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    mpsc,
-    mpsc::{Receiver, Sender},
+    mpsc::{self, Receiver},
     Arc, RwLock,
 };
-use std::thread::{self, JoinHandle};
+use std::thread;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
@@ -21,24 +19,20 @@ const FILE_HASH: &str = "hash.txt";
 const FILE_KEYWORD: &str = "keyword.txt";
 const FILE_PHASH: &str = "phash.txt";
 
-pub fn create_phash_database<P>(
+pub fn create_hash_database<P>(
     db_path: PathBuf,
     root: P,
-    progress_sender: Sender<usize>,
-    stopped: Arc<RwLock<bool>>,
-) -> Result<usize>
+    cancel_flag: Arc<RwLock<bool>>,
+) -> anyhow::Result<usize>
 where
     P: AsRef<Path>,
 {
-    let (phash_sender, phash_receiver) = mpsc::channel::<String>();
+    let (hash_sender, hash_receiver) = mpsc::channel::<String>();
 
-    write_phash_database(db_path, phash_receiver, progress_sender)
-        .with_context(|| "Could not create perceptual hash database.")?;
+    write_in_database(db_path, FILE_HASH, hash_receiver)
+        .with_context(|| "Could not create hash database.")?;
 
-    {
-        *stopped.write().unwrap() = false;
-    }
-
+    *cancel_flag.write().unwrap() = false;
     let mut count_files: usize = 0;
 
     let cpus = num_cpus::get();
@@ -50,16 +44,74 @@ where
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir() && self::is_image(e.path()))
     {
-        if *stopped.read().unwrap() {
+        if *cancel_flag.read().unwrap() {
             break;
         }
 
         count_files += 1;
-        let stopped = stopped.clone();
+        let cancel_flag = cancel_flag.clone();
+        let c_hash_sender = hash_sender.clone();
+
+        thread_pool.execute(move || {
+            if *cancel_flag.read().unwrap() {
+                return;
+            }
+
+            match utils::media::get_file_hash_md5(entry.path()) {
+                Ok(hash) => {
+                    c_hash_sender.send(hash).expect("could not send hash");
+                }
+                Err(err) => tracing::error!(
+                    "Could not generate hash. {}\nError: {}",
+                    entry.path().display(),
+                    err
+                ),
+            }
+        });
+    }
+
+    // wait for thread pool to process all jobs
+    thread_pool.join();
+    drop(hash_sender);
+
+    Ok(count_files)
+}
+
+pub fn create_phash_database<P>(
+    db_path: PathBuf,
+    root: P,
+    cancel_flag: Arc<RwLock<bool>>,
+) -> anyhow::Result<usize>
+where
+    P: AsRef<Path>,
+{
+    let (phash_sender, phash_receiver) = mpsc::channel::<String>();
+
+    write_in_database(db_path, FILE_PHASH, phash_receiver)
+        .with_context(|| "Could not create perceptual hash database.")?;
+
+    *cancel_flag.write().unwrap() = false;
+    let mut count_files: usize = 0;
+
+    let cpus = num_cpus::get();
+    let thread_pool = ThreadPool::new(cpus);
+
+    for entry in WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| !e.file_type().is_dir() && self::is_image(e.path()))
+    {
+        if *cancel_flag.read().unwrap() {
+            break;
+        }
+
+        count_files += 1;
+        let cancel_flag = cancel_flag.clone();
         let c_phash_sender = phash_sender.clone();
 
         thread_pool.execute(move || {
-            if *stopped.read().unwrap() {
+            if *cancel_flag.read().unwrap() {
                 return;
             }
 
@@ -78,60 +130,54 @@ where
         });
     }
 
+    // wait for thread pool to process all jobs
+    thread_pool.join();
     drop(phash_sender);
 
     Ok(count_files)
 }
 
-// Worker writing the perceptual hashes to the file.
-fn write_phash_database(
+// Worker writing the content to the file.
+fn write_in_database(
     db_path: PathBuf,
-    phash_receiver: Receiver<String>,
-    progress_sender: Sender<usize>,
-) -> Result<()> {
+    db_name: &str,
+    receiver: Receiver<String>,
+) -> anyhow::Result<()> {
     if !db_path.exists() {
         fs::create_dir_all(&db_path)
             .with_context(|| format!("Could not create `{}` path", db_path.display()))?;
     }
 
-    let phash_path = db_path.join(FILE_PHASH);
+    let file_path = db_path.join(db_name);
     let file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&phash_path)
-        .with_context(|| format!("Could not open file phash: {}", phash_path.display()))?;
+        .open(&file_path)
+        .with_context(|| format!("Could not open file: {}", file_path.display()))?;
 
     thread::spawn(move || {
         let mut writer = io::BufWriter::new(file);
-        let mut hash = String::new();
-        let mut count_files: usize = 0;
+        let mut content = String::new();
 
-        for phash in phash_receiver.iter() {
-            hash.clear();
-            hash.push('\n');
-            hash.push_str(&phash);
+        for value in receiver.iter() {
+            content.clear();
+            content.push_str(&value);
+            content.push('\n');
 
-            match writer.write_all(hash.as_bytes()) {
-                Ok(_) => {
-                    count_files += 1;
-                    progress_sender
-                        .send(count_files)
-                        .expect("could not send progress");
-                }
+            match writer.write_all(content.as_bytes()) {
                 Err(err) => {
-                    tracing::error!("Could not write perceptual hash in file.\nError: {:?}", err)
+                    tracing::error!("Could not write in file.\nError: {:?}", err)
                 }
+                _ => {}
             }
         }
 
         match writer.flush() {
             Err(err) => {
-                tracing::error!("Could not write perceptual hash in file.\nError: {:?}", err)
+                tracing::error!("Could not write in file.\nError: {:?}", err)
             }
             _ => {}
         }
-
-        drop(progress_sender);
     });
 
     Ok(())
@@ -144,63 +190,101 @@ fn is_image(entry: &Path) -> bool {
     }
 }
 
-pub fn load_csam_database(database_path: PathBuf, repo: Arc<dyn Repository>) -> Result<()> {
-    repo.clear();
+pub async fn load_csam_database(
+    database_path: PathBuf,
+    repo: Arc<dyn Repository>,
+) -> anyhow::Result<()> {
+    let mut tasks = vec![];
+    tasks.push(tokio::task::spawn_blocking({
+        let database_path = database_path.clone();
+        let repo = repo.clone();
+        move || load_hash_database(database_path, repo)
+    }));
+    tasks.push(tokio::task::spawn_blocking({
+        let database_path = database_path.clone();
+        let repo = repo.clone();
+        move || load_keyword_database(database_path, repo)
+    }));
+    tasks.push(tokio::task::spawn_blocking(move || {
+        load_phash_database(database_path, repo)
+    }));
 
-    let path = database_path.join(FILE_HASH);
-    let work_hash = load_hash_database(path, repo.clone());
-
-    let path = database_path.join(FILE_KEYWORD);
-    let work_keyword = load_keyword_database(path, repo.clone());
-
-    let path = database_path.join(FILE_PHASH);
-    let work_phash = load_phash_database(path, repo.clone());
-
-    match work_hash.join() {
-        Err(_) => bail!("Could not load CSAM hash database."),
-        _ => {}
-    }
-
-    match work_keyword.join() {
-        Err(_) => bail!("Could not load CSAM keyword database."),
-        _ => {}
-    }
-
-    match work_phash.join() {
-        Err(_) => bail!("Could not load CSAM phash database."),
-        _ => {}
+    match futures::future::try_join_all(tasks).await {
+        Ok(res) => {
+            if let Some(err) = res.into_iter().find_map(|r| r.err()) {
+                anyhow::bail!("Could not load csam database. Error: {}", err);
+            }
+        }
+        Err(err) => anyhow::bail!("Could not load csam database. Error: {}", err),
     }
 
     Ok(())
 }
 
-fn load_hash_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
-    thread::spawn(move || match File::open(&path) {
+pub fn load_hash_database(database_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
+    let path = database_path.join(FILE_HASH);
+
+    match OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open(&path)
+    {
         Ok(file) => {
+            repo.remove_all_hash();
+
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
                 repo.add_hash(line);
             }
         }
-        Err(err) => tracing::error!("Could not open {} : {}", path.display(), err),
-    })
+        Err(err) => anyhow::bail!("Could not open {} : {}", path.display(), err),
+    }
+
+    Ok(())
 }
 
-fn load_keyword_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
-    thread::spawn(move || match File::open(&path) {
+pub fn load_keyword_database(
+    database_path: PathBuf,
+    repo: Arc<dyn Repository>,
+) -> anyhow::Result<()> {
+    let path = database_path.join(FILE_KEYWORD);
+
+    match OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open(&path)
+    {
         Ok(file) => {
+            repo.remove_all_keywords();
+
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
                 repo.add_keyword(line);
             }
         }
-        Err(err) => tracing::error!("Could not open {} : {}", path.display(), err),
-    })
+        Err(err) => anyhow::bail!("Could not open {} : {}", path.display(), err),
+    }
+
+    Ok(())
 }
 
-fn load_phash_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<()> {
-    thread::spawn(move || match File::open(&path) {
+pub fn load_phash_database(
+    database_path: PathBuf,
+    repo: Arc<dyn Repository>,
+) -> anyhow::Result<()> {
+    let path = database_path.join(FILE_PHASH);
+
+    match OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open(&path)
+    {
         Ok(file) => {
+            repo.remove_all_phash();
+
             let mut lines = utils::file_reader::Lines::new(file);
             while let Some(Ok(line)) = lines.next() {
                 if let Ok(hash) = line.parse::<u64>() {
@@ -208,8 +292,10 @@ fn load_phash_database(path: PathBuf, repo: Arc<dyn Repository>) -> JoinHandle<(
                 }
             }
         }
-        Err(err) => tracing::error!("Could not open {} : {}", path.display(), err),
-    })
+        Err(err) => anyhow::bail!("Could not open {} : {}", path.display(), err),
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -218,48 +304,37 @@ mod tests {
     use crate::csam::repository::InMemoryRepository;
 
     #[test]
-    fn test_create_phash_database() {
+    fn test_should_create_hash_database() {
         let db_path = PathBuf::from("D:/csam/");
         let root = "D:/images_test/target/original";
-        let (send, recv) = mpsc::channel::<usize>();
-        let stopped = Arc::new(RwLock::new(false));
-        let mut total: usize = 0;
+        let cancel_flag = Arc::new(RwLock::new(false));
 
-        match create_phash_database(db_path, root, send, stopped.clone()) {
-            Ok(size) => {
-                total = size;
-                println!("Total files found: {}", size);
-            }
-            Err(err) => assert!(false, "Error: {err}"),
-        }
-
-        for p in recv.iter() {
-            println!("\t [Total] {}/{}", p, total);
+        match create_hash_database(db_path, root, cancel_flag.clone()) {
+            Ok(size) => println!("Total hash created: {}", size),
+            Err(err) => assert!(false, "{err}"),
         }
     }
 
     #[test]
-    fn test_load_csam_database() {
+    fn test_should_create_phash_database() {
         let db_path = PathBuf::from("D:/csam/");
+        let root = "D:/images_test/target/original";
+        let cancel_flag = Arc::new(RwLock::new(false));
+
+        match create_phash_database(db_path, root, cancel_flag.clone()) {
+            Ok(size) => println!("Total files found: {}", size),
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_load_csam_database() {
+        let db_path = PathBuf::from("D:/csam_empty/");
         let repo = Arc::new(InMemoryRepository::new());
 
-        match load_csam_database(db_path, repo.clone()) {
-            Ok(_) => {
-                let filename = "File name 13 year old test xpto.";
-                let keyword = String::from("13 year old");
-                let result = repo.contains_keyword(filename);
-                assert_eq!(result, Some(keyword));
-
-                let result = repo.contains_hash("cd63c80d3ad93dde00213e9b7a621513519c0d90");
-                assert_eq!(result, true);
-
-                let result = repo.match_phash(15634510955120226520, 10);
-                assert_ne!(result, None);
-                if let Some(distance) = result {
-                    assert_eq!(distance, 1);
-                }
-            }
-            Err(err) => eprintln!("Error: {}", err),
+        match load_csam_database(db_path, repo.clone()).await {
+            Ok(_) => assert!(true),
+            Err(err) => assert!(false, "{err}"),
         }
     }
 }

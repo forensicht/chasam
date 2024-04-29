@@ -8,7 +8,7 @@ pub struct AppContext {
 }
 
 impl AppContext {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         let csam_repo = Arc::new(csam::repository::InMemoryRepository::new());
         let csam_service = Arc::new(csam::Service::new(csam_repo));
 

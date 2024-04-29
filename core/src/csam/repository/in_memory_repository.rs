@@ -37,6 +37,18 @@ impl Repository for InMemoryRepository {
         store.push(phash);
     }
 
+    fn remove_all_keywords(&self) {
+        self.keyword_store.write().unwrap().clear();
+    }
+
+    fn remove_all_hash(&self) {
+        self.hash_store.write().unwrap().clear();
+    }
+
+    fn remove_all_phash(&self) {
+        self.phash_store.write().unwrap().clear();
+    }
+
     fn contains_keyword(&self, filename: &str) -> Option<String> {
         for keyword in self.keyword_store.read().unwrap().iter() {
             if filename.contains(keyword) {
@@ -95,7 +107,7 @@ mod tests {
     #[test]
     fn test_contains_hash_should_return_true() {
         let repo = InMemoryRepository::new();
-        let hash = "cd63c80d3ad93dde00213e9b7a621513519c0d90";
+        let hash = "50cd5ed4af91a2723d14f8b9f4254b7d";
         repo.add_hash(hash);
         let result = repo.contains_hash(hash);
         assert_eq!(result, true);

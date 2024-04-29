@@ -9,7 +9,6 @@ use relm4::{
     },
     AsyncComponentSender,
 };
-use std::sync::Arc;
 
 use crate::app::{
     components::{csam::CsamModel, face::FaceModel},
@@ -44,7 +43,7 @@ pub enum ContentInput {
 
 #[relm4::component(pub async)]
 impl SimpleAsyncComponent for ContentModel {
-    type Init = Arc<AppContext>;
+    type Init = AppContext;
     type Input = ContentInput;
     type Output = ();
 

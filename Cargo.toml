@@ -17,9 +17,12 @@ members = ["core"]
 
 [profile.release]
 strip = true
-lto = true
+# lto = true
 debug = false
 debug-assertions = false
+
+[profile.dev]
+opt-level = 1
 
 [profile.test]
 opt-level = 1
@@ -37,6 +40,7 @@ open = "5.0.1"
 toml = "0.8.8"
 chrono = "0.4.34"
 bytes = "1.5.0"
+num-format = "0.4.4"
 
 [dependencies.core_chasam]
 path = "core"

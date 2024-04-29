@@ -1,12 +1,12 @@
-use crate::fl;
-
 use std::path::PathBuf;
 
 use relm4::{
-    adw,
-    adw::prelude::{
-        BoxExt, ButtonExt, EditableExt, EntryRowExt, OrientableExt, PreferencesGroupExt,
-        PreferencesPageExt, PreferencesRowExt, WidgetExt,
+    adw::{
+        self,
+        prelude::{
+            BoxExt, ButtonExt, EditableExt, EntryRowExt, GtkWindowExt, OrientableExt,
+            PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt, WidgetExt,
+        },
     },
     component::{AsyncComponent, AsyncComponentParts, Component, Controller},
     gtk, AsyncComponentSender, ComponentController, RelmWidgetExt,
@@ -14,8 +14,16 @@ use relm4::{
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_names;
 
+use crate::app::components::progress_dialog::{
+    ProgressDialog, ProgressDialogOutput, ProgressSettings,
+};
+use crate::app::{components::dialogs, config::settings, models};
+use crate::{context::AppContext, fl};
+
 pub struct PHashDatabaseModel {
+    ctx: AppContext,
     open_dialog: Controller<OpenDialog>,
+    progress_dialog: Controller<ProgressDialog>,
     media_path: PathBuf,
 }
 
@@ -23,18 +31,21 @@ pub struct PHashDatabaseModel {
 pub enum PHashDatabaseInput {
     OpenFileRequest,
     OpenFileResponse(PathBuf),
+    GenerateDatabase,
     GoPrevious,
+    Cancel,
     Ignore,
 }
 
 #[derive(Debug)]
 pub enum PHashDatabaseOutput {
+    GeneratedDatabase,
     GoPrevious,
 }
 
 #[relm4::component(pub async)]
 impl AsyncComponent for PHashDatabaseModel {
-    type Init = ();
+    type Init = AppContext;
     type Input = PHashDatabaseInput;
     type Output = PHashDatabaseOutput;
     type CommandOutput = ();
@@ -77,6 +88,7 @@ impl AsyncComponent for PHashDatabaseModel {
                                 set_css_classes: &["circular", "suggested-action"],
                                 set_valign: gtk::Align::Center,
                                 set_tooltip: fl!("generate-database"),
+                                connect_clicked => PHashDatabaseInput::GenerateDatabase,
                             },
                         },
 
@@ -104,7 +116,7 @@ impl AsyncComponent for PHashDatabaseModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
@@ -125,8 +137,23 @@ impl AsyncComponent for PHashDatabaseModel {
                 OpenDialogResponse::Cancel => PHashDatabaseInput::Ignore,
             });
 
+        let progress_settings = ProgressSettings {
+            text: String::from(fl!("wait")),
+            secondary_text: Some(String::from(fl!("generating-phash-database"))),
+            cancel_label: String::from(fl!("cancel")),
+        };
+
+        let progress_dialog = ProgressDialog::builder()
+            .transient_for(&root)
+            .launch(progress_settings)
+            .forward(sender.input_sender(), |response| match response {
+                ProgressDialogOutput::Cancel => PHashDatabaseInput::Cancel,
+            });
+
         let model = PHashDatabaseModel {
+            ctx,
             open_dialog,
+            progress_dialog,
             media_path: PathBuf::default(),
         };
         let widgets = view_output!();
@@ -138,7 +165,7 @@ impl AsyncComponent for PHashDatabaseModel {
         &mut self,
         message: Self::Input,
         sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
+        root: &Self::Root,
     ) {
         match message {
             PHashDatabaseInput::OpenFileRequest => {
@@ -146,6 +173,58 @@ impl AsyncComponent for PHashDatabaseModel {
             }
             PHashDatabaseInput::OpenFileResponse(path) => {
                 self.media_path = path;
+            }
+            PHashDatabaseInput::GenerateDatabase => {
+                let window = root.toplevel_window();
+
+                if !self.media_path.exists() {
+                    dialogs::show_info_dialog(
+                        window.as_ref(),
+                        Some(fl!("phash")),
+                        Some(fl!("msg-media-path")),
+                    );
+                    return;
+                }
+
+                let progress_dialog = self.progress_dialog.widget();
+                progress_dialog.present();
+
+                let db_path = {
+                    let preference = match settings::PREFERENCES.lock() {
+                        Ok(preference) => preference.clone(),
+                        _ => models::Preference::default(),
+                    };
+                    preference.database_path.clone()
+                };
+                let media_path = self.media_path.clone();
+
+                match self
+                    .ctx
+                    .csam_service
+                    .create_phash_database(db_path, media_path)
+                    .await
+                {
+                    Ok(count) => {
+                        progress_dialog.close();
+                        dialogs::show_info_dialog(
+                            window.as_ref(),
+                            Some(fl!("phash")),
+                            Some(&format!("{}: {}", fl!("total-phash-generated"), count)),
+                        );
+                        sender
+                            .output(PHashDatabaseOutput::GeneratedDatabase)
+                            .unwrap_or_default();
+                    }
+                    Err(err) => {
+                        tracing::error!(
+                            "Could not generate perceptual hash database. Error: {}",
+                            err
+                        )
+                    }
+                }
+            }
+            PHashDatabaseInput::Cancel => {
+                self.ctx.csam_service.cancel_task();
             }
             PHashDatabaseInput::GoPrevious => {
                 sender

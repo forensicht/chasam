@@ -84,10 +84,6 @@ impl Service {
         });
     }
 
-    pub fn cancel_search_media(&self) {
-        *self.cancel_flag.write().unwrap() = true;
-    }
-
     // Asyncronous function responsible for notifying the search result.
     fn notify_result(mut media_receiver: Receiver<Media>, state_sender: Sender<StateMedia>) {
         std::thread::spawn(move || {
