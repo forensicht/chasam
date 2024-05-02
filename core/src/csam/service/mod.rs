@@ -5,7 +5,9 @@ use super::repository::Repository;
 mod create_hash_database;
 mod create_phash_database;
 mod load_database;
+mod save_keywords;
 mod search_media;
+
 pub use search_media::*;
 
 pub struct Service {
@@ -31,6 +33,10 @@ impl Service {
 
     pub async fn count_phash(&self) -> usize {
         self.repo.count_phash()
+    }
+
+    pub async fn load_keywords(&self) -> Vec<String> {
+        self.repo.load_keywords()
     }
 
     pub fn cancel_task(&self) {

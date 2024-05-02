@@ -19,6 +19,27 @@ const FILE_HASH: &str = "hash.txt";
 const FILE_KEYWORD: &str = "keyword.txt";
 const FILE_PHASH: &str = "phash.txt";
 
+pub fn create_keyword_database(db_path: PathBuf, content: &str) -> anyhow::Result<()> {
+    if !db_path.exists() {
+        fs::create_dir_all(&db_path)
+            .with_context(|| format!("Could not create `{}` path", db_path.display()))?;
+    }
+
+    let file_path = db_path.join(FILE_KEYWORD);
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&file_path)
+        .with_context(|| format!("Could not open file: {}", file_path.display()))?;
+
+    let mut writer = io::BufWriter::new(file);
+    writer.write_all(content.as_bytes())?;
+    writer.flush()?;
+
+    Ok(())
+}
+
 pub fn create_hash_database<P>(
     db_path: PathBuf,
     root: P,
@@ -190,39 +211,33 @@ fn is_image(entry: &Path) -> bool {
     }
 }
 
-pub async fn load_csam_database(
-    database_path: PathBuf,
-    repo: Arc<dyn Repository>,
-) -> anyhow::Result<()> {
-    let mut tasks = vec![];
-    tasks.push(tokio::task::spawn_blocking({
-        let database_path = database_path.clone();
-        let repo = repo.clone();
-        move || load_hash_database(database_path, repo)
-    }));
-    tasks.push(tokio::task::spawn_blocking({
-        let database_path = database_path.clone();
-        let repo = repo.clone();
-        move || load_keyword_database(database_path, repo)
-    }));
-    tasks.push(tokio::task::spawn_blocking(move || {
-        load_phash_database(database_path, repo)
-    }));
+pub fn load_keyword_database(db_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
+    let path = db_path.join(FILE_KEYWORD);
 
-    match futures::future::try_join_all(tasks).await {
-        Ok(res) => {
-            if let Some(err) = res.into_iter().find_map(|r| r.err()) {
-                anyhow::bail!("Could not load csam database. Error: {}", err);
+    match OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open(&path)
+    {
+        Ok(file) => {
+            repo.remove_all_keywords();
+
+            let mut lines = utils::file_reader::Lines::new(file);
+            while let Some(Ok(line)) = lines.next() {
+                if !line.trim().is_empty() {
+                    repo.add_keyword(line);
+                }
             }
         }
-        Err(err) => anyhow::bail!("Could not load csam database. Error: {}", err),
+        Err(err) => anyhow::bail!("Could not open {} : {}", path.display(), err),
     }
 
     Ok(())
 }
 
-pub fn load_hash_database(database_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
-    let path = database_path.join(FILE_HASH);
+pub fn load_hash_database(db_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
+    let path = db_path.join(FILE_HASH);
 
     match OpenOptions::new()
         .read(true)
@@ -244,37 +259,8 @@ pub fn load_hash_database(database_path: PathBuf, repo: Arc<dyn Repository>) -> 
     Ok(())
 }
 
-pub fn load_keyword_database(
-    database_path: PathBuf,
-    repo: Arc<dyn Repository>,
-) -> anyhow::Result<()> {
-    let path = database_path.join(FILE_KEYWORD);
-
-    match OpenOptions::new()
-        .read(true)
-        .append(true)
-        .create(true)
-        .open(&path)
-    {
-        Ok(file) => {
-            repo.remove_all_keywords();
-
-            let mut lines = utils::file_reader::Lines::new(file);
-            while let Some(Ok(line)) = lines.next() {
-                repo.add_keyword(line);
-            }
-        }
-        Err(err) => anyhow::bail!("Could not open {} : {}", path.display(), err),
-    }
-
-    Ok(())
-}
-
-pub fn load_phash_database(
-    database_path: PathBuf,
-    repo: Arc<dyn Repository>,
-) -> anyhow::Result<()> {
-    let path = database_path.join(FILE_PHASH);
+pub fn load_phash_database(db_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
+    let path = db_path.join(FILE_PHASH);
 
     match OpenOptions::new()
         .read(true)
@@ -304,8 +290,19 @@ mod tests {
     use crate::csam::repository::InMemoryRepository;
 
     #[test]
+    fn test_should_create_keyword_database() {
+        let db_path = PathBuf::from("D:/csam_test/");
+        let content = "keyword_1\nkeyword_2\nkeyword_3";
+
+        match create_keyword_database(db_path, content) {
+            Ok(_) => assert!(true),
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
+
+    #[test]
     fn test_should_create_hash_database() {
-        let db_path = PathBuf::from("D:/csam/");
+        let db_path = PathBuf::from("D:/csam_test/");
         let root = "D:/images_test/target/original";
         let cancel_flag = Arc::new(RwLock::new(false));
 
@@ -317,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_should_create_phash_database() {
-        let db_path = PathBuf::from("D:/csam/");
+        let db_path = PathBuf::from("D:/csam_test/");
         let root = "D:/images_test/target/original";
         let cancel_flag = Arc::new(RwLock::new(false));
 
@@ -327,13 +324,41 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_should_load_csam_database() {
-        let db_path = PathBuf::from("D:/csam_empty/");
+    #[test]
+    fn test_should_load_keyword_database() {
+        let db_path = PathBuf::from("D:/csam_test/");
         let repo = Arc::new(InMemoryRepository::new());
 
-        match load_csam_database(db_path, repo.clone()).await {
-            Ok(_) => assert!(true),
+        match load_keyword_database(db_path, repo.clone()) {
+            Ok(_) => {
+                assert!(repo.count_keyword() > 0);
+            }
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
+
+    #[test]
+    fn test_should_load_hash_database() {
+        let db_path = PathBuf::from("D:/csam_test/");
+        let repo = Arc::new(InMemoryRepository::new());
+
+        match load_hash_database(db_path, repo.clone()) {
+            Ok(_) => {
+                assert!(repo.count_hash() > 0);
+            }
+            Err(err) => assert!(false, "{err}"),
+        }
+    }
+
+    #[test]
+    fn test_should_load_phash_database() {
+        let db_path = PathBuf::from("D:/csam_test/");
+        let repo = Arc::new(InMemoryRepository::new());
+
+        match load_phash_database(db_path, repo.clone()) {
+            Ok(_) => {
+                assert!(repo.count_phash() > 0);
+            }
             Err(err) => assert!(false, "{err}"),
         }
     }

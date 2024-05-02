@@ -20,7 +20,7 @@ use relm4_components::open_dialog::*;
 use relm4_icons::icon_names;
 
 use crate::app::components::csam::{
-    keyword_database::{KeywordDatabaseModel, KeywordDatabaseOutput},
+    keyword_database::{KeywordDatabaseInput, KeywordDatabaseModel, KeywordDatabaseOutput},
     md5_database::{MD5DatabaseModel, MD5DatabaseOutput},
     phash_database::{PHashDatabaseModel, PHashDatabaseOutput},
 };
@@ -392,12 +392,14 @@ impl AsyncComponent for PreferencesModel {
             },
         );
 
-        let keyword_database_controller =
-            KeywordDatabaseModel::builder()
-                .launch(())
-                .forward(sender.input_sender(), |output| match output {
-                    KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
-                });
+        let keyword_database_controller = KeywordDatabaseModel::builder()
+            .launch(ctx.clone())
+            .forward(sender.input_sender(), |output| match output {
+                KeywordDatabaseOutput::SavedKeywords => {
+                    PreferencesInput::UpdateInfoView(InfoType::Keyword)
+                }
+                KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
+            });
 
         let language = preference.language.to_string();
         let locale = Locale::from_name(language).expect("Failed to loading language.");
@@ -452,8 +454,11 @@ impl AsyncComponent for PreferencesModel {
 
                 match self.ctx.csam_service.load_database(db_path).await {
                     Ok(_) => self.update_info_view(InfoType::All).await,
-                    Err(err) => tracing::error!("{}", err),
+                    Err(err) => tracing::error!("{err}"),
                 }
+
+                self.keyword_database
+                    .emit(KeywordDatabaseInput::LoadKeywords);
             }
             PreferencesInput::SetColorScheme(color_scheme) => {
                 settings::set_color_scheme(color_scheme);

@@ -11,6 +11,7 @@ pub trait Repository: Send + Sync {
     fn remove_all_phash(&self);
     fn contains_keyword(&self, filename: &str) -> Option<String>;
     fn contains_hash(&self, hash: &str) -> bool;
+    fn load_keywords(&self) -> Vec<String>;
     fn match_phash(&self, phash: u64, max_distance: u32) -> Option<u32>;
     fn count_keyword(&self) -> usize;
     fn count_hash(&self) -> usize;

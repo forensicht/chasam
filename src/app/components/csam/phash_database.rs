@@ -176,52 +176,7 @@ impl AsyncComponent for PHashDatabaseModel {
             }
             PHashDatabaseInput::GenerateDatabase => {
                 let window = root.toplevel_window();
-
-                if !self.media_path.exists() {
-                    dialogs::show_info_dialog(
-                        window.as_ref(),
-                        Some(fl!("phash")),
-                        Some(fl!("msg-media-path")),
-                    );
-                    return;
-                }
-
-                let progress_dialog = self.progress_dialog.widget();
-                progress_dialog.present();
-
-                let db_path = {
-                    let preference = match settings::PREFERENCES.lock() {
-                        Ok(preference) => preference.clone(),
-                        _ => models::Preference::default(),
-                    };
-                    preference.database_path.clone()
-                };
-                let media_path = self.media_path.clone();
-
-                match self
-                    .ctx
-                    .csam_service
-                    .create_phash_database(db_path, media_path)
-                    .await
-                {
-                    Ok(count) => {
-                        progress_dialog.close();
-                        dialogs::show_info_dialog(
-                            window.as_ref(),
-                            Some(fl!("phash")),
-                            Some(&format!("{}: {}", fl!("total-phash-generated"), count)),
-                        );
-                        sender
-                            .output(PHashDatabaseOutput::GeneratedDatabase)
-                            .unwrap_or_default();
-                    }
-                    Err(err) => {
-                        tracing::error!(
-                            "Could not generate perceptual hash database. Error: {}",
-                            err
-                        )
-                    }
-                }
+                self.generate_database(window, &sender).await;
             }
             PHashDatabaseInput::Cancel => {
                 self.ctx.csam_service.cancel_task();
@@ -232,6 +187,65 @@ impl AsyncComponent for PHashDatabaseModel {
                     .unwrap_or_default();
             }
             PHashDatabaseInput::Ignore => {}
+        }
+    }
+}
+
+impl PHashDatabaseModel {
+    async fn generate_database(
+        &mut self,
+        window: Option<gtk::Window>,
+        sender: &AsyncComponentSender<Self>,
+    ) {
+        if !self.media_path.exists() {
+            dialogs::show_info_dialog(
+                window.as_ref(),
+                Some(fl!("phash")),
+                Some(fl!("msg-media-path")),
+            );
+            return;
+        }
+
+        let progress_dialog = self.progress_dialog.widget();
+        progress_dialog.present();
+
+        let db_path = {
+            let preference = match settings::PREFERENCES.lock() {
+                Ok(preference) => preference.clone(),
+                _ => models::Preference::default(),
+            };
+            preference.database_path.clone()
+        };
+        let media_path = self.media_path.clone();
+
+        match self
+            .ctx
+            .csam_service
+            .create_phash_database(db_path, media_path)
+            .await
+        {
+            Ok(count) => {
+                progress_dialog.close();
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("phash")),
+                    Some(&format!("{}: {}", fl!("total-phash-generated"), count)),
+                );
+                sender
+                    .output(PHashDatabaseOutput::GeneratedDatabase)
+                    .unwrap_or_default();
+            }
+            Err(err) => {
+                tracing::error!(
+                    "Could not generate perceptual hash database. Error: {}",
+                    err
+                );
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("phash")),
+                    Some(fl!("failed-to-generate-db")),
+                );
+            }
         }
     }
 }

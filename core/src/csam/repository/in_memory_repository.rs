@@ -62,6 +62,15 @@ impl Repository for InMemoryRepository {
         self.hash_store.read().unwrap().contains(hash)
     }
 
+    fn load_keywords(&self) -> Vec<String> {
+        self.keyword_store
+            .read()
+            .unwrap()
+            .iter()
+            .map(|kw| kw.to_string())
+            .collect::<Vec<String>>()
+    }
+
     fn match_phash(&self, phash: u64, max_distance: u32) -> Option<u32> {
         let store = self.phash_store.read().unwrap();
         store

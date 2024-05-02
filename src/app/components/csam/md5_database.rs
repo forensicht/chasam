@@ -176,49 +176,7 @@ impl AsyncComponent for MD5DatabaseModel {
             }
             MD5DatabaseInput::GenerateDatabase => {
                 let window = root.toplevel_window();
-
-                if !self.media_path.exists() {
-                    dialogs::show_info_dialog(
-                        window.as_ref(),
-                        Some(fl!("hash")),
-                        Some(fl!("msg-media-path")),
-                    );
-                    return;
-                }
-
-                let progress_dialog = self.progress_dialog.widget();
-                progress_dialog.present();
-
-                let db_path = {
-                    let preference = match settings::PREFERENCES.lock() {
-                        Ok(preference) => preference.clone(),
-                        _ => models::Preference::default(),
-                    };
-                    preference.database_path.clone()
-                };
-                let media_path = self.media_path.clone();
-
-                match self
-                    .ctx
-                    .csam_service
-                    .create_hash_database(db_path, media_path)
-                    .await
-                {
-                    Ok(count) => {
-                        progress_dialog.close();
-                        dialogs::show_info_dialog(
-                            window.as_ref(),
-                            Some(fl!("hash")),
-                            Some(&format!("{}: {}", fl!("total-hash-generated"), count)),
-                        );
-                        sender
-                            .output(MD5DatabaseOutput::GeneratedDatabase)
-                            .unwrap_or_default();
-                    }
-                    Err(err) => {
-                        tracing::error!("Could not generate MD5 hash database. Error: {}", err)
-                    }
-                }
+                self.generate_database(window, &sender).await;
             }
             MD5DatabaseInput::Cancel => {
                 self.ctx.csam_service.cancel_task();
@@ -229,6 +187,62 @@ impl AsyncComponent for MD5DatabaseModel {
                     .unwrap_or_default();
             }
             MD5DatabaseInput::Ignore => {}
+        }
+    }
+}
+
+impl MD5DatabaseModel {
+    async fn generate_database(
+        &mut self,
+        window: Option<gtk::Window>,
+        sender: &AsyncComponentSender<Self>,
+    ) {
+        if !self.media_path.exists() {
+            dialogs::show_info_dialog(
+                window.as_ref(),
+                Some(fl!("hash")),
+                Some(fl!("msg-media-path")),
+            );
+            return;
+        }
+
+        let progress_dialog = self.progress_dialog.widget();
+        progress_dialog.present();
+
+        let db_path = {
+            let preference = match settings::PREFERENCES.lock() {
+                Ok(preference) => preference.clone(),
+                _ => models::Preference::default(),
+            };
+            preference.database_path.clone()
+        };
+        let media_path = self.media_path.clone();
+
+        match self
+            .ctx
+            .csam_service
+            .create_hash_database(db_path, media_path)
+            .await
+        {
+            Ok(count) => {
+                progress_dialog.close();
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("hash")),
+                    Some(&format!("{}: {}", fl!("total-hash-generated"), count)),
+                );
+                sender
+                    .output(MD5DatabaseOutput::GeneratedDatabase)
+                    .unwrap_or_default();
+            }
+            Err(err) => {
+                tracing::error!("Could not generate MD5 hash database. Error: {}", err);
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("hash")),
+                    Some(fl!("failed-to-generate-db")),
+                );
+            }
         }
     }
 }

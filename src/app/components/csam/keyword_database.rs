@@ -1,5 +1,3 @@
-use crate::fl;
-
 use relm4::{
     adw::{
         self,
@@ -17,7 +15,11 @@ use relm4::{
 };
 use relm4_icons::icon_names;
 
+use crate::app::{components::dialogs, config::settings, models};
+use crate::{context::AppContext, fl};
+
 pub struct KeywordDatabaseModel {
+    ctx: AppContext,
     entry_buffer: gtk::EntryBuffer,
     text_buffer: gtk::TextBuffer,
 }
@@ -25,17 +27,20 @@ pub struct KeywordDatabaseModel {
 #[derive(Debug)]
 pub enum KeywordDatabaseInput {
     AddKeyword,
+    LoadKeywords,
+    SaveKeywords,
     GoPrevious,
 }
 
 #[derive(Debug)]
 pub enum KeywordDatabaseOutput {
+    SavedKeywords,
     GoPrevious,
 }
 
 #[relm4::component(pub async)]
 impl AsyncComponent for KeywordDatabaseModel {
-    type Init = ();
+    type Init = AppContext;
     type Input = KeywordDatabaseInput;
     type Output = KeywordDatabaseOutput;
     type CommandOutput = ();
@@ -78,6 +83,7 @@ impl AsyncComponent for KeywordDatabaseModel {
                                 set_css_classes: &["circular", "suggested-action"],
                                 set_valign: gtk::Align::Center,
                                 set_tooltip: fl!("save-keywords"),
+                                connect_clicked => KeywordDatabaseInput::SaveKeywords,
                             },
                         },
 
@@ -103,6 +109,7 @@ impl AsyncComponent for KeywordDatabaseModel {
 
                             gtk::TextView {
                                 set_buffer: Some(&model.text_buffer),
+                                set_editable: true,
                                 set_hexpand: true,
                                 set_valign: gtk::Align::Fill,
                                 set_bottom_margin: 5,
@@ -118,17 +125,20 @@ impl AsyncComponent for KeywordDatabaseModel {
     }
 
     async fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
         let text_buffer = gtk::TextBuffer::default();
         text_buffer.create_tag(Some("gray_bg"), &[("background", &"lightgray".to_value())]);
 
-        let model = KeywordDatabaseModel {
+        let mut model = KeywordDatabaseModel {
+            ctx,
             entry_buffer: gtk::EntryBuffer::default(),
             text_buffer,
         };
+        model.load_keywords().await;
+
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }
@@ -138,7 +148,7 @@ impl AsyncComponent for KeywordDatabaseModel {
         &mut self,
         message: Self::Input,
         sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
+        root: &Self::Root,
     ) {
         match message {
             KeywordDatabaseInput::AddKeyword => {
@@ -150,6 +160,13 @@ impl AsyncComponent for KeywordDatabaseModel {
                     self.insert_keyword(&keyword).await;
                 }
                 self.entry_buffer.set_text("");
+            }
+            KeywordDatabaseInput::LoadKeywords => {
+                self.load_keywords().await;
+            }
+            KeywordDatabaseInput::SaveKeywords => {
+                let window = root.toplevel_window();
+                self.save_keywords(window, &sender).await;
             }
             KeywordDatabaseInput::GoPrevious => {
                 sender
@@ -185,11 +202,68 @@ impl KeywordDatabaseModel {
     }
 
     async fn insert_keyword(&mut self, keyword: &str) {
-        let text_buffer = &self.text_buffer;
-        let mut iter = text_buffer.iter_at_offset(0);
-
+        let mut iter = self.text_buffer.iter_at_offset(0);
         let mut keyword = keyword.to_string();
         keyword.push('\n');
-        text_buffer.insert(&mut iter, &keyword);
+        self.text_buffer.insert(&mut iter, &keyword);
+    }
+
+    async fn load_keywords(&mut self) {
+        let (mut start_iter, mut end_iter) = self.text_buffer.bounds();
+        self.text_buffer.delete(&mut start_iter, &mut end_iter);
+
+        let keywords = self.ctx.csam_service.load_keywords().await;
+        for kw in keywords.iter() {
+            self.insert_keyword(kw).await;
+        }
+    }
+
+    async fn save_keywords(
+        &mut self,
+        window: Option<gtk::Window>,
+        sender: &AsyncComponentSender<Self>,
+    ) {
+        let start_iter = self.text_buffer.start_iter();
+        let end_iter = self.text_buffer.end_iter();
+        let text = self.text_buffer.text(&start_iter, &end_iter, true);
+
+        if text.is_empty() {
+            dialogs::show_info_dialog(
+                window.as_ref(),
+                Some(fl!("keyword")),
+                Some(fl!("msg-keyword-empty")),
+            );
+            return;
+        }
+
+        let db_path = {
+            let preference = match settings::PREFERENCES.lock() {
+                Ok(preference) => preference.clone(),
+                _ => models::Preference::default(),
+            };
+            preference.database_path.clone()
+        };
+
+        let keywords = text.as_str();
+        match self.ctx.csam_service.save_keywords(db_path, keywords).await {
+            Ok(_) => {
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("keyword")),
+                    Some(fl!("saved-successfully")),
+                );
+                sender
+                    .output(KeywordDatabaseOutput::SavedKeywords)
+                    .unwrap_or_default();
+            }
+            Err(err) => {
+                tracing::error!("{err}");
+                dialogs::show_info_dialog(
+                    window.as_ref(),
+                    Some(fl!("keyword")),
+                    Some(fl!("failed-to-save")),
+                );
+            }
+        }
     }
 }

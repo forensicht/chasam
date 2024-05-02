@@ -59,6 +59,7 @@ generating-phash-database = Generando la base de datos hash perceptivo...
 msg-media-path = Directorio de medios no existe.
 total-hash-generated = Hash total generado
 total-phash-generated = Hash perceptivo total generado
+msg-keyword-empty = No hay ninguna palabra clave para guardar.
 
 # About dialog
 translators = Hericson dos Santos <hericson.cipol@gmail.com>
@@ -96,3 +97,6 @@ hamming-distance = Distancia de hamming
 generic-error = Ocurrió un error:
 invalid-directory = ¡Directorio invalido!
 open-media-error = No se pudieron abrir los medios
+saved-successfully = ¡Guardado exitosamente!
+failed-to-save = ¡Error al guardar!
+failed-to-generate-db = ¡No se pudo generar la base de datos!
