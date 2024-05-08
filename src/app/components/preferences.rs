@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use num_format::{Locale, ToFormattedString};
+use num_format::ToFormattedString;
 use relm4::{
     adw,
     adw::prelude::{
@@ -29,7 +29,6 @@ use crate::{context::AppContext, fl};
 
 pub struct PreferencesModel {
     ctx: AppContext,
-    locale: Locale,
     open_dialog: Controller<OpenDialog>,
     preference: models::Preference,
     md5_database: AsyncController<MD5DatabaseModel>,
@@ -143,7 +142,7 @@ impl AsyncComponent for PreferencesModel {
                                 add = &adw::PreferencesGroup {
                                     set_title: fl!("language"),
                                     adw::ActionRow {
-                                        set_title: fl!("englis"),
+                                        set_title: fl!("english"),
                                         add_prefix = &gtk::Box {
                                             set_halign: gtk::Align::Center,
                                             set_valign: gtk::Align::Center,
@@ -350,11 +349,6 @@ impl AsyncComponent for PreferencesModel {
     ) -> AsyncComponentParts<Self> {
         let (main_window, ctx) = init;
 
-        let preference = match settings::PREFERENCES.lock() {
-            Ok(preference) => preference.clone(),
-            _ => models::Preference::default(),
-        };
-
         let open_dialog_settings = OpenDialogSettings {
             folder_mode: true,
             accept_label: String::from(fl!("open")),
@@ -401,8 +395,8 @@ impl AsyncComponent for PreferencesModel {
                 KeywordDatabaseOutput::GoPrevious => PreferencesInput::GoPrevious,
             });
 
-        let language = preference.language.to_string();
-        let locale = Locale::from_name(language).expect("Failed to loading language.");
+        let preference = ctx.get_preference();
+        let locale = ctx.get_locale();
         let hash_count = ctx
             .csam_service
             .count_hash()
@@ -421,7 +415,6 @@ impl AsyncComponent for PreferencesModel {
 
         let model = PreferencesModel {
             ctx,
-            locale,
             open_dialog,
             preference,
             md5_database: md5_database_controller,
@@ -509,33 +502,22 @@ impl PreferencesModel {
 
     async fn update_info_view(&mut self, info_type: InfoType) {
         let service = self.ctx.csam_service.clone();
+        let locale = self.ctx.get_locale();
 
         match info_type {
             InfoType::Hash => {
-                self.hash_count = service.count_hash().await.to_formatted_string(&self.locale);
+                self.hash_count = service.count_hash().await.to_formatted_string(&locale);
             }
             InfoType::PerceptualHash => {
-                self.phash_count = service
-                    .count_phash()
-                    .await
-                    .to_formatted_string(&self.locale);
+                self.phash_count = service.count_phash().await.to_formatted_string(&locale);
             }
             InfoType::Keyword => {
-                self.keywords_count = service
-                    .count_keyword()
-                    .await
-                    .to_formatted_string(&self.locale);
+                self.keywords_count = service.count_keyword().await.to_formatted_string(&locale);
             }
             InfoType::All => {
-                self.hash_count = service.count_hash().await.to_formatted_string(&self.locale);
-                self.phash_count = service
-                    .count_phash()
-                    .await
-                    .to_formatted_string(&self.locale);
-                self.keywords_count = service
-                    .count_keyword()
-                    .await
-                    .to_formatted_string(&self.locale);
+                self.hash_count = service.count_hash().await.to_formatted_string(&locale);
+                self.phash_count = service.count_phash().await.to_formatted_string(&locale);
+                self.keywords_count = service.count_keyword().await.to_formatted_string(&locale);
             }
         }
     }

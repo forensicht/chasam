@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use num_format::ToFormattedString;
 use relm4::{
     adw::{
         self,
@@ -229,7 +230,11 @@ impl PHashDatabaseModel {
                 dialogs::show_info_dialog(
                     window.as_ref(),
                     Some(fl!("phash")),
-                    Some(&format!("{}: {}", fl!("total-phash-generated"), count)),
+                    Some(&format!(
+                        "{}: {}",
+                        fl!("total-phash-generated"),
+                        count.to_formatted_string(&self.ctx.get_locale())
+                    )),
                 );
                 sender
                     .output(PHashDatabaseOutput::GeneratedDatabase)

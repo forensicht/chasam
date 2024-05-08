@@ -77,7 +77,7 @@ where
 
 #[allow(unused)]
 pub fn get_image_perceptual_hash(img: DynamicImage) -> Result<u64> {
-    phash::difference_hash(img)
+    phash::perception_hash(img, phash::ColorType::Threshold)
 }
 
 #[allow(unused)]

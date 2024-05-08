@@ -1,4 +1,4 @@
-use crate::fl;
+use num_format::ToFormattedString;
 use relm4::{
     component::{ComponentParts, SimpleComponent},
     gtk::{
@@ -8,7 +8,11 @@ use relm4::{
     ComponentSender,
 };
 
+use crate::{context::AppContext, fl};
+
 pub struct StatusbarModel {
+    ctx: AppContext,
+    is_loading: bool,
     image_found: usize,
     video_found: usize,
     suspects_found: usize,
@@ -18,6 +22,7 @@ pub struct StatusbarModel {
 #[derive(Debug)]
 pub enum StatusbarInput {
     Reset,
+    Loading,
     ImageFound(usize),
     CSAMFound(usize),
     VideoFound(usize),
@@ -26,7 +31,7 @@ pub enum StatusbarInput {
 
 #[relm4::component(pub)]
 impl SimpleComponent for StatusbarModel {
-    type Init = ();
+    type Init = AppContext;
     type Input = StatusbarInput;
     type Output = ();
 
@@ -58,9 +63,11 @@ impl SimpleComponent for StatusbarModel {
             gtk::Label {
                 #[watch]
                 set_label: &if model.total_found > 0 {
-                    model.total_found.to_string()
-                } else {
+                    model.total_found.to_formatted_string(&model.ctx.get_locale())
+                } else if model.is_loading {
                     fl!("calculating").to_string()
+                } else {
+                    String::from("0")
                 },
             },
 
@@ -72,7 +79,8 @@ impl SimpleComponent for StatusbarModel {
 
             gtk::Label {
                 #[watch]
-                set_label: &format!("{}: {}", fl!("images"), model.image_found),
+                set_label: &format!("{}: {}", fl!("images"),
+                    model.image_found.to_formatted_string(&model.ctx.get_locale())),
             },
 
             gtk::Separator {
@@ -83,7 +91,8 @@ impl SimpleComponent for StatusbarModel {
 
             gtk::Label {
                 #[watch]
-                set_label: &format!("{}: {}", fl!("videos"), model.video_found),
+                set_label: &format!("{}: {}", fl!("videos"),
+                    model.video_found.to_formatted_string(&model.ctx.get_locale())),
             },
 
             gtk::Separator {
@@ -94,18 +103,21 @@ impl SimpleComponent for StatusbarModel {
 
             gtk::Label {
                 #[watch]
-                set_label: &format!("{}: {}", fl!("suspects-files"), model.suspects_found),
+                set_label: &format!("{}: {}", fl!("suspects-files"),
+                    model.suspects_found.to_formatted_string(&model.ctx.get_locale())),
                 set_css_classes: &["color-red"],
             },
         }
     }
 
     fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let model = StatusbarModel {
+            ctx,
+            is_loading: false,
             image_found: 0,
             video_found: 0,
             suspects_found: 0,
@@ -119,15 +131,20 @@ impl SimpleComponent for StatusbarModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             StatusbarInput::Reset => {
+                self.is_loading = false;
                 self.image_found = 0;
                 self.suspects_found = 0;
                 self.video_found = 0;
                 self.total_found = 0;
             }
+            StatusbarInput::Loading => self.is_loading = true,
             StatusbarInput::ImageFound(found) => self.image_found += found,
             StatusbarInput::CSAMFound(found) => self.suspects_found += found,
             StatusbarInput::VideoFound(found) => self.video_found = found,
-            StatusbarInput::TotalFound(found) => self.total_found = found,
+            StatusbarInput::TotalFound(found) => {
+                self.total_found = found;
+                self.is_loading = false;
+            }
         }
     }
 }

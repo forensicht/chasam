@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use num_format::ToFormattedString;
 use relm4::{
     adw::{
         self,
@@ -229,7 +230,11 @@ impl MD5DatabaseModel {
                 dialogs::show_info_dialog(
                     window.as_ref(),
                     Some(fl!("hash")),
-                    Some(&format!("{}: {}", fl!("total-hash-generated"), count)),
+                    Some(&format!(
+                        "{}: {}",
+                        fl!("total-hash-generated"),
+                        count.to_formatted_string(&self.ctx.get_locale())
+                    )),
                 );
                 sender
                     .output(MD5DatabaseOutput::GeneratedDatabase)

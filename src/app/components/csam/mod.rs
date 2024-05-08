@@ -5,11 +5,11 @@ pub mod phash_database;
 pub mod statusbar;
 pub mod toolbar;
 
-use anyhow::Result;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use num_format::ToFormattedString;
 use relm4::{
     adw,
     binding::Binding,
@@ -18,7 +18,8 @@ use relm4::{
     },
     gtk::{
         self,
-        prelude::{BoxExt, Cast, FrameExt, GObjectPropertyExpressionExt, OrientableExt, WidgetExt},
+        glib::{self, object::ObjectExt, value::ToValue},
+        prelude::{BoxExt, Cast, FrameExt, OrientableExt, WidgetExt},
     },
     typed_view::grid::TypedGridView,
     Component,
@@ -97,7 +98,7 @@ pub enum CsamInput {
 #[derive(Debug)]
 pub enum CsamCommandOutput {
     SearchCompleted,
-    AddMedia(Result<Vec<models::Media>>),
+    AddMedia(anyhow::Result<Vec<models::Media>>),
     MediaFound(usize),
 }
 
@@ -232,17 +233,22 @@ impl AsyncComponent for CsamModel {
                 ToolbarOutput::SearchEntry(query) => CsamInput::SearchEntry(query),
             });
 
-        let statusbar_controller = StatusbarModel::builder().launch(()).detach();
+        let statusbar_controller = StatusbarModel::builder().launch(ctx.clone()).detach();
 
         let media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection> = TypedGridView::new();
         media_list_wrapper
             .selection_model
-            .property_expression("n-items")
-            .bind(
+            .bind_property(
+                "n-items",
                 &statusbar_controller.widgets().label_media_found,
                 "label",
-                gtk::Widget::NONE,
-            );
+            )
+            .transform_to({
+                let locale = ctx.get_locale().clone();
+                move |_, n_items: u32| Some(n_items.to_formatted_string(&locale).to_value())
+            })
+            .flags(glib::BindingFlags::SYNC_CREATE)
+            .build();
 
         let media_details_controller = MediaDetailsModel::builder()
             .launch(models::MediaDetail::default())
@@ -395,6 +401,8 @@ impl AsyncComponent for CsamModel {
 
 impl CsamModel {
     async fn on_search(&mut self, path: PathBuf, sender: &AsyncComponentSender<CsamModel>) {
+        self.statusbar.emit(StatusbarInput::Loading);
+
         let (tx, mut rx) = relm4::tokio::sync::mpsc::channel(100);
 
         sender.command(|out, shutdown| {
