@@ -20,17 +20,22 @@ use crate::app::models;
 #[derive(Debug)]
 pub struct MediaItem {
     pub media: models::Media,
-    pub active: BoolBinding,
-    pub thumbnail_size: I32Binding,
+    active: BoolBinding,
+    thumbnail_size: I32Binding,
     bindings: Vec<glib::Binding>,
 }
 
 impl MediaItem {
     pub fn new(media: models::Media) -> Self {
         let active = BoolBinding::new(false);
-        active.connect_notify(None, |value, _| {
-            let is_active = value.value();
-            SELECT_BROKER.send(ToolbarInput::SelectedItem(is_active));
+        active.connect_notify_local(None, |value, _| {
+            let new_value = value.value();
+            let old_value = unsafe { value.steal_data::<bool>("value") }.unwrap_or_default();
+            unsafe { value.set_data("value", new_value) };
+
+            if new_value != old_value {
+                SELECT_BROKER.send(ToolbarInput::SelectedItem(new_value));
+            }
         });
 
         Self {
@@ -42,8 +47,13 @@ impl MediaItem {
     }
 
     pub fn set_active(&mut self, is_active: bool) {
-        self.media.is_selected = is_active;
-        *self.active.guard() = is_active;
+        if is_active != self.active.value() {
+            *self.active.guard() = is_active;
+        }
+    }
+
+    pub fn set_thumbnail_size(&mut self, size: i32) {
+        *self.thumbnail_size.guard() = size;
     }
 
     pub fn is_video(&self) -> bool {
@@ -133,8 +143,9 @@ impl RelmGridItem for MediaItem {
             checkbox,
             label,
         } = widgets;
+        let media = &self.media;
 
-        root.set_tooltip(self.media.name.as_str());
+        root.set_tooltip(media.name.as_str());
 
         let binding = self
             .thumbnail_size
@@ -158,16 +169,16 @@ impl RelmGridItem for MediaItem {
             .build();
         self.bindings.push(binding);
 
-        label.set_label(self.media.name.as_str());
+        label.set_label(media.name.as_str());
 
-        if let Some(data) = self.media.data.as_ref() {
+        if let Some(data) = media.data.as_ref() {
             let pixbuf = Self::get_pixbuf(data);
             picture.set_pixbuf(pixbuf.as_ref());
         } else {
-            picture.set_filename(Some(self.media.path.as_str()));
+            picture.set_filename(Some(media.path.as_str()));
         }
 
-        root.set_class_active("media-highlight", self.media.is_csam())
+        root.set_class_active("media-highlight", media.is_csam())
     }
 
     fn unbind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {

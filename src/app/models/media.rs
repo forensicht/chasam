@@ -38,8 +38,6 @@ pub struct Media {
     pub match_type: String,
     pub hamming: u32,
     pub data: Option<Bytes>,
-    pub is_selected: bool,
-    pub thumbnail_size: i32,
 }
 
 impl From<&core_chasam::csam::Media> for Media {
@@ -58,8 +56,6 @@ impl From<&core_chasam::csam::Media> for Media {
             match_type: media.match_type.clone(),
             hamming: media.hamming,
             data: media.data.clone(),
-            is_selected: false,
-            thumbnail_size: THUMBNAIL_SIZE,
         }
     }
 }

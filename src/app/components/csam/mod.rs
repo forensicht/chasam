@@ -12,14 +12,13 @@ use std::rc::Rc;
 use num_format::ToFormattedString;
 use relm4::{
     adw,
-    binding::Binding,
     component::{
         AsyncComponent, AsyncComponentParts, AsyncComponentSender, ComponentController, Controller,
     },
     gtk::{
         self,
         glib::{self, object::ObjectExt, value::ToValue},
-        prelude::{BoxExt, Cast, FrameExt, OrientableExt, WidgetExt},
+        prelude::{BoxExt, Cast, FrameExt, ListModelExt, OrientableExt, WidgetExt},
     },
     typed_view::grid::TypedGridView,
     Component,
@@ -365,11 +364,9 @@ impl AsyncComponent for CsamModel {
     ) {
         match message {
             CsamCommandOutput::SearchCompleted => {
-                println!("Search Completed");
                 self.searchbar.emit(SearchBarInput::SearchCompleted);
             }
             CsamCommandOutput::MediaFound(found) => {
-                println!("Media Found: {}", found);
                 self.statusbar.emit(StatusbarInput::TotalFound(found));
             }
             CsamCommandOutput::AddMedia(result) => match result {
@@ -377,19 +374,17 @@ impl AsyncComponent for CsamModel {
                     let media_items = medias
                         .into_iter()
                         .map(|media| MediaItem::new(media))
+                        .inspect(|item| {
+                            if item.is_video() {
+                                self.statusbar.emit(StatusbarInput::VideoFound(1));
+                            } else {
+                                self.statusbar.emit(StatusbarInput::ImageFound(1));
+                            }
+                            if item.is_csam() {
+                                self.statusbar.emit(StatusbarInput::CSAMFound(1));
+                            }
+                        })
                         .collect::<Vec<MediaItem>>();
-
-                    for item in media_items.iter() {
-                        if item.is_video() {
-                            self.statusbar.emit(StatusbarInput::VideoFound(1));
-                        } else {
-                            self.statusbar.emit(StatusbarInput::ImageFound(1));
-                        }
-
-                        if item.is_csam() {
-                            self.statusbar.emit(StatusbarInput::CSAMFound(1));
-                        }
-                    }
 
                     self.media_list_wrapper.extend_from_iter(media_items);
                 }
@@ -438,14 +433,19 @@ impl CsamModel {
         });
 
         self.ctx.csam_service.search_media(path, tx);
-
-        println!("Search OK");
     }
 
     async fn on_select_all_medias(&mut self, is_active: bool) {
-        for position in 0..self.media_list_wrapper.len() {
-            let item = self.media_list_wrapper.get(position).unwrap();
-            item.borrow_mut().set_active(is_active);
+        if is_active {
+            for position in 0..self.media_list_wrapper.selection_model.n_items() {
+                let item = self.media_list_wrapper.get_visible(position).unwrap();
+                item.borrow_mut().set_active(is_active);
+            }
+        } else {
+            for position in 0..self.media_list_wrapper.len() {
+                let item = self.media_list_wrapper.get(position).unwrap();
+                item.borrow_mut().set_active(is_active);
+            }
         }
     }
 
@@ -476,9 +476,7 @@ impl CsamModel {
         let len = self.media_list_wrapper.len();
         for position in 0..len {
             let item = self.media_list_wrapper.get(position).unwrap();
-            let binding = &mut item.borrow_mut().thumbnail_size;
-            let mut guard = binding.guard();
-            *guard = self.thumbnail_size;
+            item.borrow_mut().set_thumbnail_size(self.thumbnail_size);
         }
     }
 }
