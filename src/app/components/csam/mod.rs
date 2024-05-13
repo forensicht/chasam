@@ -211,7 +211,7 @@ impl AsyncComponent for CsamModel {
                 });
 
         let toolbar_controller = ToolbarModel::builder()
-            .launch_with_broker((), &toolbar::SELECT_BROKER)
+            .launch_with_broker(ctx.clone(), &toolbar::SELECT_BROKER)
             .forward(sender.input_sender(), |output| match output {
                 ToolbarOutput::SelectAll(is_selected) => CsamInput::SelectAllMedias(is_selected),
                 ToolbarOutput::ZoomIn => CsamInput::ZoomIn,

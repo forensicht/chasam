@@ -1,7 +1,4 @@
-use crate::fl;
-
-use core_chasam::csam::Media;
-
+use num_format::ToFormattedString;
 use relm4::{
     component::{Component, ComponentParts},
     gtk::prelude::{
@@ -13,9 +10,13 @@ use relm4::{
 };
 use relm4_icons::icon_names;
 
+use crate::{context::AppContext, fl};
+use core_chasam::csam::Media;
+
 pub static SELECT_BROKER: MessageBroker<ToolbarInput> = MessageBroker::new();
 
 pub struct ToolbarModel {
+    ctx: AppContext,
     selection_count: usize,
 }
 
@@ -55,7 +56,7 @@ pub enum ToolbarOutput {
 
 #[relm4::component(pub)]
 impl Component for ToolbarModel {
-    type Init = ();
+    type Init = AppContext;
     type Input = ToolbarInput;
     type Output = ToolbarOutput;
     type CommandOutput = ();
@@ -102,7 +103,7 @@ impl Component for ToolbarModel {
 
                 gtk::Label {
                     #[watch]
-                    set_label: &model.selection_count.to_string(),
+                    set_label: &model.selection_count.to_formatted_string(&model.ctx.get_locale()),
                     set_xalign: 0.0,
                     add_css_class: "dim-label",
                     set_margin_start: 4,
@@ -493,11 +494,14 @@ impl Component for ToolbarModel {
     }
 
     fn init(
-        _init: Self::Init,
+        ctx: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = ToolbarModel { selection_count: 0 };
+        let model = ToolbarModel {
+            ctx,
+            selection_count: 0,
+        };
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
