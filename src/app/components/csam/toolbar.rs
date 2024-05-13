@@ -42,6 +42,7 @@ pub enum ToolbarOutput {
     ZoomIn,
     ZoomOut,
     SelectAll(bool),
+    SaveSelected,
     HammingDistanceFilter(u32),
     SearchEntry(String),
     ImageFilter(bool),
@@ -81,7 +82,7 @@ impl Component for ToolbarModel {
                     set_tooltip: fl!("deselect-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
-                        sender.output(ToolbarOutput::SelectAll(false)).unwrap();
+                        sender.output(ToolbarOutput::SelectAll(false)).unwrap_or_default();
                     },
                 },
 
@@ -90,7 +91,17 @@ impl Component for ToolbarModel {
                     set_tooltip: fl!("select-all"),
                     add_css_class: "flat",
                     connect_clicked[sender] => move |_| {
-                        sender.output(ToolbarOutput::SelectAll(true)).unwrap();
+                        sender.output(ToolbarOutput::SelectAll(true)).unwrap_or_default();
+                    },
+                },
+
+                gtk::Button {
+                    set_icon_name: icon_names::SAVE_FILLED,
+                    set_tooltip: fl!("save-selected-media"),
+                    add_css_class: "flat",
+                    set_margin_start: 5,
+                    connect_clicked[sender] => move |_| {
+                        sender.output(ToolbarOutput::SaveSelected).unwrap_or_default();
                     },
                 },
 

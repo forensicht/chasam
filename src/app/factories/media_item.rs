@@ -52,6 +52,10 @@ impl MediaItem {
         }
     }
 
+    pub fn is_active(&self) -> bool {
+        self.active.value()
+    }
+
     pub fn set_thumbnail_size(&mut self, size: i32) {
         *self.thumbnail_size.guard() = size;
     }

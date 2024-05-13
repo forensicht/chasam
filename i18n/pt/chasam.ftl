@@ -25,6 +25,9 @@ selected-count = Selecionados:
 media-type = Tipo de Mídia
 image = Imagem
 video = Vídeo 
+save-selected-media = Salvar mídias selecionadas
+media-export-success = Sucesso na exportação de mídia
+select-media = Selecione uma ou mais mídias!
 
 # Preferences
 preferences = Preferências
@@ -100,3 +103,4 @@ open-media-error = Falha ao abrir mídia
 saved-successfully = Salvo com sucesso!
 failed-to-save = Falha ao salvar!
 failed-to-generate-db = Falha ao gerar à base de dados!
+media-export-error = Erro na exportação da mídia!

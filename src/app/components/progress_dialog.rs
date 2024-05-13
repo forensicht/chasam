@@ -71,18 +71,19 @@ impl Component for ProgressDialog {
 
                     gtk::Label {
                         set_label: &model.settings.text,
-                        set_css_classes: &["heading"],
+                        set_css_classes: &["title-4"],
                     },
 
                     gtk::Label {
                         set_visible: model.settings.secondary_text.is_some(),
                         set_label?: model.settings.secondary_text.as_ref(),
+                        set_css_classes: &["heading"],
                     },
                 },
 
                 #[wrap(Some)]
                 set_center_widget = &gtk::Spinner {
-                    set_margin_bottom: 10,
+                    set_margin_bottom: 5,
                     set_margin_top: 10,
                     start: (),
                     set_size_request: (30, 30),

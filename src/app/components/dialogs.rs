@@ -1,7 +1,6 @@
-use relm4::{
-    adw,
-    adw::prelude::{GtkWindowExt, IsA, MessageDialogExt},
-    gtk,
+use relm4::adw::{
+    self, gtk,
+    prelude::{GtkWindowExt, IsA, MessageDialogExt},
 };
 
 pub fn show_info_dialog(

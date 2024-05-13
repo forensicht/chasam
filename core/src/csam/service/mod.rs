@@ -4,6 +4,7 @@ use super::repository::Repository;
 
 mod create_hash_database;
 mod create_phash_database;
+mod export_media;
 mod load_database;
 mod save_keywords;
 mod search_media;

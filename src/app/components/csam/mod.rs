@@ -18,19 +18,22 @@ use relm4::{
     gtk::{
         self,
         glib::{self, object::ObjectExt, value::ToValue},
-        prelude::{BoxExt, Cast, FrameExt, ListModelExt, OrientableExt, WidgetExt},
+        prelude::{BoxExt, Cast, FrameExt, GtkWindowExt, ListModelExt, OrientableExt, WidgetExt},
     },
     typed_view::grid::TypedGridView,
-    Component,
+    Component, RelmWidgetExt,
 };
+use relm4_components::open_dialog::*;
 
+use super::dialogs;
 use crate::app::{
+    components::progress_dialog::{ProgressDialog, ProgressDialogOutput, ProgressSettings},
     components::searchbar::{SearchBarInput, SearchBarModel, SearchBarOutput},
+    config::info,
     factories::media_item::MediaItem,
     models,
 };
-use crate::context::AppContext;
-use crate::fl;
+use crate::{context::AppContext, fl};
 use core_chasam::csam::StateMedia;
 use media_details::{MediaDetailsInput, MediaDetailsModel, MediaDetailsOutput};
 use statusbar::{StatusbarInput, StatusbarModel};
@@ -38,6 +41,8 @@ use toolbar::{ToolbarModel, ToolbarOutput};
 
 pub struct CsamModel {
     ctx: AppContext,
+    save_dialog: Controller<OpenDialog>,
+    progress_dialog: Controller<ProgressDialog>,
     searchbar: Controller<SearchBarModel>,
     toolbar: Controller<ToolbarModel>,
     statusbar: Controller<StatusbarModel>,
@@ -47,35 +52,10 @@ pub struct CsamModel {
     thumbnail_size: i32,
 }
 
-impl CsamModel {
-    pub fn new(
-        ctx: AppContext,
-        searchbar: Controller<SearchBarModel>,
-        toolbar: Controller<ToolbarModel>,
-        statusbar: Controller<StatusbarModel>,
-        media_list_wrapper: TypedGridView<MediaItem, gtk::NoSelection>,
-        media_details: Controller<MediaDetailsModel>,
-    ) -> Self {
-        Self {
-            ctx,
-            searchbar,
-            toolbar,
-            statusbar,
-            media_list_wrapper,
-            media_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
-            media_details,
-            thumbnail_size: models::media::THUMBNAIL_SIZE,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum CsamInput {
-    // Searchbar
     StartSearch(PathBuf),
     StopSearch,
-
-    // Toolbar
     ZoomIn,
     ZoomOut,
     HammingDistanceFilter(u32),
@@ -89,9 +69,14 @@ pub enum CsamInput {
     SizeFilter500KB(bool),
     SizeFilterA500KB(bool),
     SearchEntry(String),
-
+    SaveSelectedMedia,
+    CancelMediaExport,
+    SaveFileResponse(PathBuf),
     MediaListSelect(u32),
+    ShowInfoDialog(String),
+    ShowProgressDialog(bool),
     Notify(String, u32),
+    Ignore,
 }
 
 #[derive(Debug)]
@@ -99,6 +84,8 @@ pub enum CsamCommandOutput {
     SearchCompleted,
     AddMedia(anyhow::Result<Vec<models::Media>>),
     MediaFound(usize),
+    ShowProgressDialog(bool),
+    Notify(String, u32),
 }
 
 #[relm4::component(pub async)]
@@ -201,6 +188,36 @@ impl AsyncComponent for CsamModel {
         root: Self::Root,
         sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
+        let save_dialog_settings = OpenDialogSettings {
+            folder_mode: true,
+            accept_label: String::from(fl!("open")),
+            cancel_label: String::from(fl!("cancel")),
+            create_folders: true,
+            is_modal: true,
+            filters: Vec::new(),
+        };
+
+        let save_dialog = OpenDialog::builder()
+            .transient_for_native(&root)
+            .launch(save_dialog_settings)
+            .forward(sender.input_sender(), |response| match response {
+                OpenDialogResponse::Accept(path) => CsamInput::SaveFileResponse(path),
+                OpenDialogResponse::Cancel => CsamInput::Ignore,
+            });
+
+        let progress_settings = ProgressSettings {
+            text: fl!("wait").to_string(),
+            secondary_text: Some("Exporting media...".to_string()),
+            cancel_label: fl!("cancel").to_string(),
+        };
+
+        let progress_dialog = ProgressDialog::builder()
+            .transient_for(&root)
+            .launch(progress_settings)
+            .forward(sender.input_sender(), move |response| match response {
+                ProgressDialogOutput::Cancel => CsamInput::CancelMediaExport,
+            });
+
         let searchbar_controller =
             SearchBarModel::builder()
                 .launch(())
@@ -214,6 +231,7 @@ impl AsyncComponent for CsamModel {
             .launch_with_broker(ctx.clone(), &toolbar::SELECT_BROKER)
             .forward(sender.input_sender(), |output| match output {
                 ToolbarOutput::SelectAll(is_selected) => CsamInput::SelectAllMedias(is_selected),
+                ToolbarOutput::SaveSelected => CsamInput::SaveSelectedMedia,
                 ToolbarOutput::ZoomIn => CsamInput::ZoomIn,
                 ToolbarOutput::ZoomOut => CsamInput::ZoomOut,
                 ToolbarOutput::HammingDistanceFilter(value) => {
@@ -255,14 +273,18 @@ impl AsyncComponent for CsamModel {
                 MediaDetailsOutput::Notify(msg, timeout) => CsamInput::Notify(msg, timeout),
             });
 
-        let mut model = CsamModel::new(
+        let mut model = CsamModel {
             ctx,
-            searchbar_controller,
-            toolbar_controller,
-            statusbar_controller,
+            save_dialog,
+            progress_dialog,
+            searchbar: searchbar_controller,
+            toolbar: toolbar_controller,
+            statusbar: statusbar_controller,
             media_list_wrapper,
-            media_details_controller,
-        );
+            media_filter: Rc::new(RefCell::new(models::MediaFilter::default())),
+            media_details: media_details_controller,
+            thumbnail_size: models::media::THUMBNAIL_SIZE,
+        };
 
         let filter = model.media_filter.clone();
         model.media_list_wrapper.add_filter(on_filter(filter));
@@ -279,7 +301,7 @@ impl AsyncComponent for CsamModel {
         widgets: &mut Self::Widgets,
         message: Self::Input,
         sender: AsyncComponentSender<Self>,
-        _root: &Self::Root,
+        root: &Self::Root,
     ) {
         match message {
             CsamInput::StartSearch(path) => {
@@ -347,10 +369,31 @@ impl AsyncComponent for CsamModel {
                 self.media_filter.borrow_mut().search_entry = Some(query);
                 self.apply_media_filters().await;
             }
+            CsamInput::SaveSelectedMedia => {
+                self.save_dialog.emit(OpenDialogMsg::Open);
+            }
+            CsamInput::CancelMediaExport => {
+                self.ctx.csam_service.cancel_task();
+            }
+            CsamInput::SaveFileResponse(path) => {
+                self.on_save_selected_media(&path, sender.clone()).await;
+            }
+            CsamInput::ShowInfoDialog(msg) => {
+                let window = root.toplevel_window();
+                dialogs::show_info_dialog(window.as_ref(), Some(info::APP_NAME), Some(&msg));
+            }
+            CsamInput::ShowProgressDialog(show) => {
+                if show {
+                    self.progress_dialog.widget().present();
+                } else {
+                    self.progress_dialog.widget().close();
+                }
+            }
             CsamInput::Notify(msg, timeout) => {
                 let toast = adw::Toast::builder().title(msg).timeout(timeout).build();
                 widgets.overlay.add_toast(toast);
             }
+            CsamInput::Ignore => (),
         }
 
         self.update_view(widgets, sender);
@@ -359,7 +402,7 @@ impl AsyncComponent for CsamModel {
     async fn update_cmd(
         &mut self,
         message: Self::CommandOutput,
-        _sender: AsyncComponentSender<Self>,
+        sender: AsyncComponentSender<Self>,
         _root: &Self::Root,
     ) {
         match message {
@@ -388,8 +431,20 @@ impl AsyncComponent for CsamModel {
 
                     self.media_list_wrapper.extend_from_iter(media_items);
                 }
-                Err(error) => tracing::error!("{}: {}", fl!("generic-error"), error),
+                Err(err) => {
+                    sender.input(CsamInput::Notify(
+                        format!("{}: {}", fl!("generic-error"), err),
+                        5,
+                    ));
+                    tracing::error!("{}: {}", fl!("generic-error"), err);
+                }
             },
+            CsamCommandOutput::ShowProgressDialog(show) => {
+                sender.input(CsamInput::ShowProgressDialog(show))
+            }
+            CsamCommandOutput::Notify(msg, timeout) => {
+                sender.input(CsamInput::Notify(msg, timeout))
+            }
         }
     }
 }
@@ -447,6 +502,55 @@ impl CsamModel {
                 item.borrow_mut().set_active(is_active);
             }
         }
+    }
+
+    async fn on_save_selected_media(&mut self, path: &PathBuf, sender: AsyncComponentSender<Self>) {
+        let mut selected_media = vec![];
+        for position in 0..self.media_list_wrapper.selection_model.n_items() {
+            let item = self.media_list_wrapper.get_visible(position).unwrap();
+            let item = item.borrow();
+            if item.is_active() {
+                selected_media.push(item.media.path.clone());
+            }
+        }
+
+        if selected_media.len() == 0 {
+            sender.input(CsamInput::ShowInfoDialog(fl!("select-media").to_string()));
+            return;
+        }
+
+        let ctx = self.ctx.clone();
+        let path = path.to_owned();
+
+        sender.command(|out, shutdown| {
+            shutdown
+                .register(async move {
+                    out.send(CsamCommandOutput::ShowProgressDialog(true))
+                        .unwrap_or_default();
+
+                    match ctx.csam_service.export_media(&path, &selected_media).await {
+                        Ok(_) => {
+                            out.send(CsamCommandOutput::Notify(
+                                fl!("media-export-success").to_string(),
+                                5,
+                            ))
+                            .unwrap_or_default();
+                        }
+                        Err(err) => {
+                            tracing::error!("Media export error: {}", err);
+                            out.send(CsamCommandOutput::Notify(
+                                format!("{}: {}", fl!("media-export-error"), err),
+                                5,
+                            ))
+                            .unwrap_or_default();
+                        }
+                    }
+
+                    out.send(CsamCommandOutput::ShowProgressDialog(false))
+                        .unwrap_or_default();
+                })
+                .drop_on_shutdown()
+        });
     }
 
     async fn apply_media_filters(&mut self) {

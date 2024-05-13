@@ -25,6 +25,9 @@ selected-count = Selected:
 media-type = Media Type
 image = Image
 video = Video 
+save-selected-media = Save selected media
+media-export-success = Media export success
+select-media = Select one or more media!
 
 # Preferences
 preferences = Preferences
@@ -100,3 +103,4 @@ open-media-error = Failed to open media
 saved-successfully = Saved successfully!
 failed-to-save = Failed to save!
 failed-to-generate-db = Failed to generate the database!
+media-export-error = Error when exporting media!
