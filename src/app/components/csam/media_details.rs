@@ -1,5 +1,3 @@
-use crate::fl;
-
 use relm4::{
     component::{Component, ComponentParts},
     gtk::{
@@ -10,6 +8,7 @@ use relm4::{
 };
 
 use crate::app::models;
+use crate::fl;
 
 pub struct MediaDetailsModel {
     media: models::MediaDetail,
@@ -203,10 +202,10 @@ impl Component for MediaDetailsModel {
                 Err(_) => {
                     let msg = format!("{} {}", fl!("open-media-error"), self.media.name.as_str());
                     sender
-                        .output(MediaDetailsOutput::Notify(msg, 3))
+                        .output(MediaDetailsOutput::Notify(msg, 5))
                         .unwrap_or_default();
                 }
-                _ => {}
+                _ => (),
             },
             MediaDetailsInput::ShowMedia(media) => self.media = media,
         }

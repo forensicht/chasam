@@ -33,6 +33,8 @@ pub enum MD5DatabaseInput {
     OpenFileRequest,
     OpenFileResponse(PathBuf),
     GenerateDatabase,
+    ShowInfoDialog(String),
+    ShowProgressDialog(bool),
     GoPrevious,
     Cancel,
     Ignore,
@@ -44,12 +46,19 @@ pub enum MD5DatabaseOutput {
     GoPrevious,
 }
 
+#[derive(Debug)]
+pub enum MD5DatabaseCommandOutput {
+    GeneratedDatabase,
+    ShowInfoDialog(String),
+    ShowProgressDialog(bool),
+}
+
 #[relm4::component(pub async)]
 impl AsyncComponent for MD5DatabaseModel {
     type Init = AppContext;
     type Input = MD5DatabaseInput;
     type Output = MD5DatabaseOutput;
-    type CommandOutput = ();
+    type CommandOutput = MD5DatabaseCommandOutput;
 
     view! {
         #[root]
@@ -176,8 +185,18 @@ impl AsyncComponent for MD5DatabaseModel {
                 self.media_path = path;
             }
             MD5DatabaseInput::GenerateDatabase => {
+                self.generate_database(sender).await;
+            }
+            MD5DatabaseInput::ShowInfoDialog(msg) => {
                 let window = root.toplevel_window();
-                self.generate_database(window, &sender).await;
+                dialogs::show_info_dialog(window.as_ref(), Some(fl!("hash")), Some(&msg));
+            }
+            MD5DatabaseInput::ShowProgressDialog(show) => {
+                if show {
+                    self.progress_dialog.widget().present();
+                } else {
+                    self.progress_dialog.widget().close();
+                }
             }
             MD5DatabaseInput::Cancel => {
                 self.ctx.csam_service.cancel_task();
@@ -187,29 +206,40 @@ impl AsyncComponent for MD5DatabaseModel {
                     .output(MD5DatabaseOutput::GoPrevious)
                     .unwrap_or_default();
             }
-            MD5DatabaseInput::Ignore => {}
+            MD5DatabaseInput::Ignore => (),
+        }
+    }
+
+    async fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        sender: AsyncComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        match message {
+            MD5DatabaseCommandOutput::GeneratedDatabase => sender
+                .output(MD5DatabaseOutput::GeneratedDatabase)
+                .unwrap_or_default(),
+            MD5DatabaseCommandOutput::ShowInfoDialog(msg) => {
+                sender.input(MD5DatabaseInput::ShowInfoDialog(msg))
+            }
+            MD5DatabaseCommandOutput::ShowProgressDialog(show) => {
+                sender.input(MD5DatabaseInput::ShowProgressDialog(show))
+            }
         }
     }
 }
 
 impl MD5DatabaseModel {
-    async fn generate_database(
-        &mut self,
-        window: Option<gtk::Window>,
-        sender: &AsyncComponentSender<Self>,
-    ) {
+    async fn generate_database(&mut self, sender: AsyncComponentSender<Self>) {
         if !self.media_path.exists() {
-            dialogs::show_info_dialog(
-                window.as_ref(),
-                Some(fl!("hash")),
-                Some(fl!("msg-media-path")),
-            );
+            sender.input(MD5DatabaseInput::ShowInfoDialog(
+                fl!("msg-media-path").to_string(),
+            ));
             return;
         }
 
-        let progress_dialog = self.progress_dialog.widget();
-        progress_dialog.present();
-
+        let ctx = self.ctx.clone();
         let db_path = {
             let preference = match settings::PREFERENCES.lock() {
                 Ok(preference) => preference.clone(),
@@ -219,35 +249,44 @@ impl MD5DatabaseModel {
         };
         let media_path = self.media_path.clone();
 
-        match self
-            .ctx
-            .csam_service
-            .create_hash_database(db_path, media_path)
-            .await
-        {
-            Ok(count) => {
-                progress_dialog.close();
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("hash")),
-                    Some(&format!(
-                        "{}: {}",
-                        fl!("total-hash-generated"),
-                        count.to_formatted_string(&self.ctx.get_locale())
-                    )),
-                );
-                sender
-                    .output(MD5DatabaseOutput::GeneratedDatabase)
-                    .unwrap_or_default();
-            }
-            Err(err) => {
-                tracing::error!("Could not generate MD5 hash database. Error: {}", err);
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("hash")),
-                    Some(fl!("failed-to-generate-db")),
-                );
-            }
-        }
+        sender.command(|out, shutdown| {
+            shutdown
+                .register(async move {
+                    out.send(MD5DatabaseCommandOutput::ShowProgressDialog(true))
+                        .unwrap_or_default();
+
+                    match ctx
+                        .csam_service
+                        .create_hash_database(db_path, media_path)
+                        .await
+                    {
+                        Ok(count) => {
+                            out.send(MD5DatabaseCommandOutput::ShowInfoDialog(
+                                format!(
+                                    "{}: {}",
+                                    fl!("total-hash-generated"),
+                                    count.to_formatted_string(&ctx.get_locale())
+                                )
+                                .to_string(),
+                            ))
+                            .unwrap_or_default();
+
+                            out.send(MD5DatabaseCommandOutput::GeneratedDatabase)
+                                .unwrap_or_default();
+                        }
+                        Err(err) => {
+                            tracing::error!("Could not generate MD5 hash database. Error: {}", err);
+                            out.send(MD5DatabaseCommandOutput::ShowInfoDialog(
+                                fl!("failed-to-generate-db").to_string(),
+                            ))
+                            .unwrap_or_default();
+                        }
+                    }
+
+                    out.send(MD5DatabaseCommandOutput::ShowProgressDialog(false))
+                        .unwrap_or_default();
+                })
+                .drop_on_shutdown()
+        });
     }
 }

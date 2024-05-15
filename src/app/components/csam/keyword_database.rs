@@ -29,6 +29,7 @@ pub enum KeywordDatabaseInput {
     AddKeyword,
     LoadKeywords,
     SaveKeywords,
+    ShowInfoDialog(String),
     GoPrevious,
 }
 
@@ -165,8 +166,11 @@ impl AsyncComponent for KeywordDatabaseModel {
                 self.load_keywords().await;
             }
             KeywordDatabaseInput::SaveKeywords => {
+                self.save_keywords(&sender).await;
+            }
+            KeywordDatabaseInput::ShowInfoDialog(msg) => {
                 let window = root.toplevel_window();
-                self.save_keywords(window, &sender).await;
+                dialogs::show_info_dialog(window.as_ref(), Some(fl!("keyword")), Some(&msg));
             }
             KeywordDatabaseInput::GoPrevious => {
                 sender
@@ -218,21 +222,15 @@ impl KeywordDatabaseModel {
         }
     }
 
-    async fn save_keywords(
-        &mut self,
-        window: Option<gtk::Window>,
-        sender: &AsyncComponentSender<Self>,
-    ) {
+    async fn save_keywords(&mut self, sender: &AsyncComponentSender<Self>) {
         let start_iter = self.text_buffer.start_iter();
         let end_iter = self.text_buffer.end_iter();
         let text = self.text_buffer.text(&start_iter, &end_iter, true);
 
         if text.is_empty() {
-            dialogs::show_info_dialog(
-                window.as_ref(),
-                Some(fl!("keyword")),
-                Some(fl!("msg-keyword-empty")),
-            );
+            sender.input(KeywordDatabaseInput::ShowInfoDialog(
+                fl!("msg-keyword-empty").to_string(),
+            ));
             return;
         }
 
@@ -247,22 +245,18 @@ impl KeywordDatabaseModel {
         let keywords = text.as_str();
         match self.ctx.csam_service.save_keywords(db_path, keywords).await {
             Ok(_) => {
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("keyword")),
-                    Some(fl!("saved-successfully")),
-                );
+                sender.input(KeywordDatabaseInput::ShowInfoDialog(
+                    fl!("saved-successfully").to_string(),
+                ));
                 sender
                     .output(KeywordDatabaseOutput::SavedKeywords)
                     .unwrap_or_default();
             }
             Err(err) => {
                 tracing::error!("{err}");
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("keyword")),
-                    Some(fl!("failed-to-save")),
-                );
+                sender.input(KeywordDatabaseInput::ShowInfoDialog(
+                    fl!("failed-to-save").to_string(),
+                ));
             }
         }
     }

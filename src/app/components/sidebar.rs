@@ -1,13 +1,13 @@
-use crate::app::{
-    factories::sidebar_option::{SidebarOptionModel, SidebarOptionOutput},
-    models,
-};
-
 use relm4::{
     component::{AsyncComponentParts, SimpleAsyncComponent},
     factory::AsyncFactoryVecDeque,
     gtk::prelude::{OrientableExt, WidgetExt},
     prelude::*,
+};
+
+use crate::app::{
+    factories::sidebar_option::{SidebarOptionModel, SidebarOptionOutput},
+    models,
 };
 
 pub struct SidebarModel {

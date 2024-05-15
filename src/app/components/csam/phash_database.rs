@@ -33,6 +33,8 @@ pub enum PHashDatabaseInput {
     OpenFileRequest,
     OpenFileResponse(PathBuf),
     GenerateDatabase,
+    ShowInfoDialog(String),
+    ShowProgressDialog(bool),
     GoPrevious,
     Cancel,
     Ignore,
@@ -44,12 +46,19 @@ pub enum PHashDatabaseOutput {
     GoPrevious,
 }
 
+#[derive(Debug)]
+pub enum PHashDatabaseCommandOutput {
+    GeneratedDatabase,
+    ShowInfoDialog(String),
+    ShowProgressDialog(bool),
+}
+
 #[relm4::component(pub async)]
 impl AsyncComponent for PHashDatabaseModel {
     type Init = AppContext;
     type Input = PHashDatabaseInput;
     type Output = PHashDatabaseOutput;
-    type CommandOutput = ();
+    type CommandOutput = PHashDatabaseCommandOutput;
 
     view! {
         #[root]
@@ -139,9 +148,9 @@ impl AsyncComponent for PHashDatabaseModel {
             });
 
         let progress_settings = ProgressSettings {
-            text: String::from(fl!("wait")),
-            secondary_text: Some(String::from(fl!("generating-phash-database"))),
-            cancel_label: String::from(fl!("cancel")),
+            text: fl!("wait").to_string(),
+            secondary_text: Some(fl!("generating-phash-database").to_string()),
+            cancel_label: fl!("cancel").to_string(),
         };
 
         let progress_dialog = ProgressDialog::builder()
@@ -176,40 +185,61 @@ impl AsyncComponent for PHashDatabaseModel {
                 self.media_path = path;
             }
             PHashDatabaseInput::GenerateDatabase => {
-                let window = root.toplevel_window();
-                self.generate_database(window, &sender).await;
+                self.generate_database(sender).await;
             }
             PHashDatabaseInput::Cancel => {
                 self.ctx.csam_service.cancel_task();
+            }
+            PHashDatabaseInput::ShowInfoDialog(msg) => {
+                let window = root.toplevel_window();
+                dialogs::show_info_dialog(window.as_ref(), Some(fl!("phash")), Some(&msg));
+            }
+            PHashDatabaseInput::ShowProgressDialog(show) => {
+                if show {
+                    self.progress_dialog.widget().present();
+                } else {
+                    self.progress_dialog.widget().close();
+                }
             }
             PHashDatabaseInput::GoPrevious => {
                 sender
                     .output(PHashDatabaseOutput::GoPrevious)
                     .unwrap_or_default();
             }
-            PHashDatabaseInput::Ignore => {}
+            PHashDatabaseInput::Ignore => (),
+        }
+    }
+
+    async fn update_cmd(
+        &mut self,
+        message: Self::CommandOutput,
+        sender: AsyncComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
+        match message {
+            PHashDatabaseCommandOutput::GeneratedDatabase => sender
+                .output(PHashDatabaseOutput::GeneratedDatabase)
+                .unwrap_or_default(),
+            PHashDatabaseCommandOutput::ShowInfoDialog(msg) => {
+                sender.input(PHashDatabaseInput::ShowInfoDialog(msg))
+            }
+            PHashDatabaseCommandOutput::ShowProgressDialog(show) => {
+                sender.input(PHashDatabaseInput::ShowProgressDialog(show))
+            }
         }
     }
 }
 
 impl PHashDatabaseModel {
-    async fn generate_database(
-        &mut self,
-        window: Option<gtk::Window>,
-        sender: &AsyncComponentSender<Self>,
-    ) {
+    async fn generate_database(&mut self, sender: AsyncComponentSender<Self>) {
         if !self.media_path.exists() {
-            dialogs::show_info_dialog(
-                window.as_ref(),
-                Some(fl!("phash")),
-                Some(fl!("msg-media-path")),
-            );
+            sender.input(PHashDatabaseInput::ShowInfoDialog(
+                fl!("msg-media-path").to_string(),
+            ));
             return;
         }
 
-        let progress_dialog = self.progress_dialog.widget();
-        progress_dialog.present();
-
+        let ctx = self.ctx.clone();
         let db_path = {
             let preference = match settings::PREFERENCES.lock() {
                 Ok(preference) => preference.clone(),
@@ -219,38 +249,47 @@ impl PHashDatabaseModel {
         };
         let media_path = self.media_path.clone();
 
-        match self
-            .ctx
-            .csam_service
-            .create_phash_database(db_path, media_path)
-            .await
-        {
-            Ok(count) => {
-                progress_dialog.close();
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("phash")),
-                    Some(&format!(
-                        "{}: {}",
-                        fl!("total-phash-generated"),
-                        count.to_formatted_string(&self.ctx.get_locale())
-                    )),
-                );
-                sender
-                    .output(PHashDatabaseOutput::GeneratedDatabase)
-                    .unwrap_or_default();
-            }
-            Err(err) => {
-                tracing::error!(
-                    "Could not generate perceptual hash database. Error: {}",
-                    err
-                );
-                dialogs::show_info_dialog(
-                    window.as_ref(),
-                    Some(fl!("phash")),
-                    Some(fl!("failed-to-generate-db")),
-                );
-            }
-        }
+        sender.command(|out, shutdown| {
+            shutdown
+                .register(async move {
+                    out.send(PHashDatabaseCommandOutput::ShowProgressDialog(true))
+                        .unwrap_or_default();
+
+                    match ctx
+                        .csam_service
+                        .create_phash_database(db_path, media_path)
+                        .await
+                    {
+                        Ok(count) => {
+                            out.send(PHashDatabaseCommandOutput::ShowInfoDialog(
+                                format!(
+                                    "{}: {}",
+                                    fl!("total-phash-generated"),
+                                    count.to_formatted_string(&ctx.get_locale())
+                                )
+                                .to_string(),
+                            ))
+                            .unwrap_or_default();
+
+                            out.send(PHashDatabaseCommandOutput::GeneratedDatabase)
+                                .unwrap_or_default();
+                        }
+                        Err(err) => {
+                            tracing::error!(
+                                "Could not generate perceptual hash database. Error: {}",
+                                err
+                            );
+                            out.send(PHashDatabaseCommandOutput::ShowInfoDialog(
+                                fl!("failed-to-generate-db").to_string(),
+                            ))
+                            .unwrap_or_default();
+                        }
+                    }
+
+                    out.send(PHashDatabaseCommandOutput::ShowProgressDialog(false))
+                        .unwrap_or_default();
+                })
+                .drop_on_shutdown()
+        });
     }
 }

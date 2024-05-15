@@ -77,7 +77,6 @@ impl Component for ProgressDialog {
                     gtk::Label {
                         set_visible: model.settings.secondary_text.is_some(),
                         set_label?: model.settings.secondary_text.as_ref(),
-                        set_css_classes: &["heading"],
                     },
                 },
 
