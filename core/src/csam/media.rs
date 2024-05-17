@@ -14,6 +14,13 @@ pub enum MediaType {
 }
 
 #[derive(Debug, Clone)]
+enum MatchType {
+    MD5,
+    PHash(u32),
+    Keyword(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct Media {
     pub name: String,
     pub path: String,
@@ -24,7 +31,7 @@ pub struct Media {
     pub phash: u64,
     pub match_type: String,
     pub hamming: u32,
-    pub data: Option<Bytes>,
+    pub img_buf: Option<Bytes>,
 }
 
 impl Media {
@@ -60,33 +67,75 @@ impl Media {
         let md5_hash = utils::media::get_file_hash_md5(&media_path).unwrap_or_default();
 
         // make thumbnail
-        let (dynamic_img, img_data) = match media_type {
+        let (dynamic_img, img_buf) = match media_type {
             MediaType::Image => {
                 match utils::media::make_thumbnail_to_vec(&media_path, Self::THUMBNAIL_SIZE) {
-                    Ok((img, buf)) => (Some(img), Some(Bytes::from(buf))),
+                    Ok((img, buf)) => (Some(vec![img]), Some(Bytes::from(buf))),
                     Err(err) => {
                         tracing::error!("{} : {}", media_path.as_str(), err);
                         (None, None)
                     }
                 }
             }
-            MediaType::Video => (None, None),
+            MediaType::Video => match utils::media::decoder::make_thumbnail_to_vec(&media_path) {
+                Ok((imgs, buf)) => (Some(imgs), Some(Bytes::from(buf))),
+                Err(err) => {
+                    tracing::error!("{} : {}", media_path.as_str(), err);
+                    (None, None)
+                }
+            },
         };
 
         // perceptual hash of the file
-        let phash = if media_size > 0 {
-            utils::media::get_image_perceptual_hash(dynamic_img.unwrap())
-                .with_context(|| "could not generate perceptual hash")?
+        let phash_vec = if media_size > 0 && dynamic_img.is_some() {
+            dynamic_img
+                .unwrap()
+                .into_iter()
+                .map(|img| {
+                    utils::media::get_image_perceptual_hash(img)
+                        .with_context(|| "could not generate perceptual hash")
+                })
+                .collect::<anyhow::Result<Vec<u64>>>()
         } else {
-            0
+            Ok(vec![0])
         };
 
         // checks if the media is in the CSAM database
-        let (match_type, distance_hamming) =
-            match Media::find_csam(repo.clone(), &name, &md5_hash, phash, media_type) {
-                Some((match_type, distance_hamming)) => (match_type, distance_hamming),
-                None => (String::new(), 0u32),
-            };
+        let (phash, match_type, distance_hamming) = {
+            let phash_vec = phash_vec?;
+
+            if phash_vec.len() == 1 {
+                let phash = phash_vec[0];
+                match Media::find_csam(repo.clone(), &name, &md5_hash, phash) {
+                    Some(match_type) => match match_type {
+                        MatchType::MD5 => (phash, String::from("MD5"), 0),
+                        MatchType::Keyword(keyword) => (phash, format!("Keyword [ {keyword} ]"), 0),
+                        MatchType::PHash(distance_hamming) => (
+                            phash,
+                            format!("PHash [ {distance_hamming} ]"),
+                            distance_hamming,
+                        ),
+                    },
+                    None => (0u64, String::new(), 0u32),
+                }
+            } else {
+                phash_vec
+                    .into_iter()
+                    .map(
+                        |phash| match Media::find_csam_by_phash(repo.clone(), phash) {
+                            Some(distance_hamming) => (
+                                phash,
+                                format!("PHash [ {distance_hamming} ]"),
+                                distance_hamming,
+                            ),
+                            None => (0u64, String::new(), 0u32),
+                        },
+                    )
+                    .filter(|phash| phash.0 != 0 && phash.2 > 0)
+                    .reduce(|lhs, rhs| if lhs.2 < rhs.2 { lhs } else { rhs })
+                    .unwrap_or((0u64, String::new(), 0))
+            }
+        };
 
         let media = Media {
             name,
@@ -98,7 +147,7 @@ impl Media {
             phash,
             match_type,
             hamming: distance_hamming,
-            data: img_data,
+            img_buf,
         };
 
         Ok(media)
@@ -109,38 +158,32 @@ impl Media {
         name: &str,
         hash: &str,
         phash: u64,
-        media_type: MediaType,
-    ) -> Option<(String, u32)> {
-        if let Some(hash) = Media::find_csam_by_hash(repo.clone(), hash) {
-            return Some((hash, 0));
+    ) -> Option<MatchType> {
+        if Media::find_csam_by_hash(repo.clone(), hash) {
+            return Some(MatchType::MD5);
         }
+
         if let Some(keyword) = Media::find_csam_by_keyword(repo.clone(), name) {
-            return Some((keyword, 0));
+            return Some(MatchType::Keyword(keyword));
         }
-        if media_type == MediaType::Video {
-            return None;
-        }
+
         if phash == 0 {
             return None;
         }
-        if let Some(distance) = Media::find_csam_by_phash(repo.clone(), phash) {
-            return Some(("chHash".to_string(), distance));
+
+        if let Some(distance_hamming) = Media::find_csam_by_phash(repo.clone(), phash) {
+            return Some(MatchType::PHash(distance_hamming));
         }
+
         None
     }
 
-    fn find_csam_by_hash(repo: Arc<dyn Repository>, hash: &str) -> Option<String> {
-        if repo.contains_hash(hash) {
-            return Some("MD5".to_string());
-        }
-        None
+    fn find_csam_by_hash(repo: Arc<dyn Repository>, hash: &str) -> bool {
+        repo.contains_hash(hash)
     }
 
     fn find_csam_by_keyword(repo: Arc<dyn Repository>, name: &str) -> Option<String> {
-        if let Some(keyword) = repo.contains_keyword(name) {
-            return Some(format!("keyword [{}]", keyword));
-        }
-        None
+        repo.contains_keyword(name)
     }
 
     fn find_csam_by_phash(repo: Arc<dyn Repository>, phash: u64) -> Option<u32> {

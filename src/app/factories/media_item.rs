@@ -73,8 +73,7 @@ impl MediaItem {
 
     fn get_pixbuf(data: &[u8]) -> Option<Pixbuf> {
         let bytes: VecDeque<u8> = data.into_iter().cloned().collect();
-        let pixbuf = Pixbuf::from_read(bytes).ok()?;
-        Some(pixbuf)
+        Pixbuf::from_read(bytes).ok()
     }
 }
 
@@ -175,7 +174,7 @@ impl RelmGridItem for MediaItem {
 
         label.set_label(media.name.as_str());
 
-        if let Some(data) = media.data.as_ref() {
+        if let Some(data) = media.img_buf.as_ref() {
             let pixbuf = Self::get_pixbuf(data);
             picture.set_pixbuf(pixbuf.as_ref());
         } else {

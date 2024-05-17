@@ -131,7 +131,7 @@ impl Component for SearchBarModel {
                 } else {
                     let msg = fl!("invalid-directory").to_string();
                     sender
-                        .output(SearchBarOutput::Notify(msg, 3))
+                        .output(SearchBarOutput::Notify(msg, 5))
                         .unwrap_or_default();
                 }
             }
@@ -149,7 +149,7 @@ impl Component for SearchBarModel {
             SearchBarInput::OpenFileResponse(path) => {
                 self.file_path = path;
             }
-            SearchBarInput::Ignore => {}
+            SearchBarInput::Ignore => (),
         }
     }
 }

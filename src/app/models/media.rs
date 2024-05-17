@@ -37,7 +37,7 @@ pub struct Media {
     pub phash: u64,
     pub match_type: String,
     pub hamming: u32,
-    pub data: Option<Bytes>,
+    pub img_buf: Option<Bytes>,
 }
 
 impl From<&core_chasam::csam::Media> for Media {
@@ -55,7 +55,7 @@ impl From<&core_chasam::csam::Media> for Media {
             phash: media.phash,
             match_type: media.match_type.clone(),
             hamming: media.hamming,
-            data: media.data.clone(),
+            img_buf: media.img_buf.clone(),
         }
     }
 }
@@ -77,13 +77,14 @@ impl Media {
 pub struct MediaDetail {
     pub name: String,
     pub path: String,
-    pub media_type: String,
+    pub media_type: MediaType,
     pub size: String,
     pub last_modified: String,
     pub hash: String,
     pub phash: String,
     pub match_type: String,
     pub hamming: String,
+    pub img_buf: Option<Bytes>,
 }
 
 impl From<&Media> for MediaDetail {
@@ -93,7 +94,7 @@ impl From<&Media> for MediaDetail {
         Self {
             name: media.name.clone(),
             path: media.path.clone(),
-            media_type: media.media_type.clone().name(),
+            media_type: media.media_type.clone(),
             size: if media.size > 1024 {
                 format!("{:.2} MB", (media.size / 1024) as f64)
             } else {
@@ -108,6 +109,7 @@ impl From<&Media> for MediaDetail {
             phash: format!("{:X}", media.phash),
             match_type: media.match_type.clone(),
             hamming: media.hamming.to_string(),
+            img_buf: media.img_buf.clone(),
         }
     }
 }

@@ -307,6 +307,7 @@ impl AsyncComponent for CsamModel {
             CsamInput::StartSearch(path) => {
                 self.media_list_wrapper.clear();
                 self.statusbar.emit(StatusbarInput::Reset);
+                self.media_details.emit(MediaDetailsInput::Reset);
                 self.on_search(path, &sender).await;
             }
             CsamInput::StopSearch => {

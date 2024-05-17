@@ -1,3 +1,5 @@
+pub mod decoder;
+
 use anyhow::Result;
 use image::DynamicImage;
 use sha1::{Digest, Sha1};
@@ -18,8 +20,7 @@ pub fn is_video(extension: &str) -> bool {
 }
 
 pub fn is_media(extension: &str) -> bool {
-    // is_image(extension) || is_video(extension)
-    is_image(extension)
+    is_image(extension) || is_video(extension)
 }
 
 #[allow(unused)]

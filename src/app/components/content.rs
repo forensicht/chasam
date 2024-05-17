@@ -22,20 +22,6 @@ pub struct ContentModel {
     sidebar_option: Option<SidebarOption>,
 }
 
-impl ContentModel {
-    pub fn new(
-        csam: AsyncController<CsamModel>,
-        face: AsyncController<FaceModel>,
-        sidebar_option: Option<SidebarOption>,
-    ) -> Self {
-        Self {
-            csam,
-            face,
-            sidebar_option,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum ContentInput {
     SelectSidebarOption(SidebarOption),
@@ -89,7 +75,11 @@ impl SimpleAsyncComponent for ContentModel {
         let csam_controller = CsamModel::builder().launch(ctx).detach();
         let face_controller = FaceModel::builder().launch(()).detach();
 
-        let model = ContentModel::new(csam_controller, face_controller, Some(SidebarOption::CSAM));
+        let model = ContentModel {
+            csam: csam_controller,
+            face: face_controller,
+            sidebar_option: Some(SidebarOption::CSAM),
+        };
         let widgets = view_output!();
 
         AsyncComponentParts { model, widgets }

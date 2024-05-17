@@ -15,10 +15,10 @@ use relm4::{
 use relm4_components::open_dialog::*;
 use relm4_icons::icon_names;
 
+use crate::app::components::dialogs;
 use crate::app::components::progress_dialog::{
     ProgressDialog, ProgressDialogOutput, ProgressSettings,
 };
-use crate::app::{components::dialogs, config::settings, models};
 use crate::{context::AppContext, fl};
 
 pub struct PHashDatabaseModel {
@@ -240,13 +240,7 @@ impl PHashDatabaseModel {
         }
 
         let ctx = self.ctx.clone();
-        let db_path = {
-            let preference = match settings::PREFERENCES.lock() {
-                Ok(preference) => preference.clone(),
-                _ => models::Preference::default(),
-            };
-            preference.database_path.clone()
-        };
+        let db_path = ctx.get_preference().database_path.clone();
         let media_path = self.media_path.clone();
 
         sender.command(|out, shutdown| {

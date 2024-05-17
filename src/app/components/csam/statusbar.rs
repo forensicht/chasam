@@ -140,7 +140,7 @@ impl SimpleComponent for StatusbarModel {
             StatusbarInput::Loading => self.is_loading = true,
             StatusbarInput::ImageFound(found) => self.image_found += found,
             StatusbarInput::CSAMFound(found) => self.suspects_found += found,
-            StatusbarInput::VideoFound(found) => self.video_found = found,
+            StatusbarInput::VideoFound(found) => self.video_found += found,
             StatusbarInput::TotalFound(found) => {
                 self.total_found = found;
                 self.is_loading = false;

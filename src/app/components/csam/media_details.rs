@@ -1,5 +1,8 @@
+use std::collections::VecDeque;
+
 use relm4::{
     component::{Component, ComponentParts},
+    gtk::gdk::gdk_pixbuf,
     gtk::{
         self,
         prelude::{BoxExt, GestureExt, GridExt, OrientableExt, WidgetExt},
@@ -12,12 +15,15 @@ use crate::fl;
 
 pub struct MediaDetailsModel {
     media: models::MediaDetail,
+    pixbuf: Option<gdk_pixbuf::Pixbuf>,
+    is_visible: bool,
 }
 
 #[derive(Debug)]
 pub enum MediaDetailsInput {
     OpenMedia,
     ShowMedia(models::MediaDetail),
+    Reset,
 }
 
 #[derive(Debug)]
@@ -47,10 +53,12 @@ impl Component for MediaDetailsModel {
                 gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 12,
+                    #[watch]
+                    set_visible: model.is_visible,
 
                     gtk::Picture {
                         #[watch]
-                        set_filename: Some(&model.media.path),
+                        set_pixbuf: model.pixbuf.as_ref(),
                         set_width_request: 320,
                         set_height_request: -1,
                         set_content_fit: gtk::ContentFit::Contain,
@@ -103,7 +111,7 @@ impl Component for MediaDetailsModel {
                         },
                         attach[1, 2, 1, 1] = &gtk::Label {
                             #[watch]
-                            set_label: &model.media.media_type,
+                            set_label: &model.media.media_type.name(),
                             set_halign: gtk::Align::Start,
                             set_hexpand: true,
                         },
@@ -162,17 +170,17 @@ impl Component for MediaDetailsModel {
                             set_halign: gtk::Align::Start,
                             set_hexpand: true,
                         },
-                        attach[0, 8, 1, 1] = &gtk::Label {
-                            set_label: &format!("{}:", fl!("hamming-distance")),
-                            set_halign: gtk::Align::Start,
-                            set_css_classes: &["key-label"],
-                        },
-                        attach[1, 8, 1, 1] = &gtk::Label {
-                            #[watch]
-                            set_label: &model.media.hamming,
-                            set_halign: gtk::Align::Start,
-                            set_hexpand: true,
-                        },
+                        // attach[0, 8, 1, 1] = &gtk::Label {
+                        //     set_label: &format!("{}:", fl!("hamming-distance")),
+                        //     set_halign: gtk::Align::Start,
+                        //     set_css_classes: &["key-label"],
+                        // },
+                        // attach[1, 8, 1, 1] = &gtk::Label {
+                        //     #[watch]
+                        //     set_label: &model.media.hamming,
+                        //     set_halign: gtk::Align::Start,
+                        //     set_hexpand: true,
+                        // },
                     },
                 },
             },
@@ -184,7 +192,11 @@ impl Component for MediaDetailsModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let model = MediaDetailsModel { media };
+        let model = MediaDetailsModel {
+            media,
+            pixbuf: None,
+            is_visible: false,
+        };
         let widgets = view_output!();
 
         ComponentParts { model, widgets }
@@ -207,7 +219,26 @@ impl Component for MediaDetailsModel {
                 }
                 _ => (),
             },
-            MediaDetailsInput::ShowMedia(media) => self.media = media,
+            MediaDetailsInput::ShowMedia(media) => {
+                self.pixbuf = match media.media_type {
+                    models::MediaType::Image => gdk_pixbuf::Pixbuf::from_file(&media.path).ok(),
+                    models::MediaType::Video => {
+                        if let Some(ref img_buf) = media.img_buf {
+                            let bytes: VecDeque<_> = img_buf.iter().cloned().collect();
+                            gdk_pixbuf::Pixbuf::from_read(bytes).ok()
+                        } else {
+                            None
+                        }
+                    }
+                };
+                self.media = media;
+                self.is_visible = true;
+            }
+            MediaDetailsInput::Reset => {
+                self.media = models::MediaDetail::default();
+                self.pixbuf = None;
+                self.is_visible = false;
+            }
         }
 
         self.update_view(widgets, sender);

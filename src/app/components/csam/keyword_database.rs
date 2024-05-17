@@ -15,7 +15,7 @@ use relm4::{
 };
 use relm4_icons::icon_names;
 
-use crate::app::{components::dialogs, config::settings, models};
+use crate::app::components::dialogs;
 use crate::{context::AppContext, fl};
 
 pub struct KeywordDatabaseModel {
@@ -234,14 +234,7 @@ impl KeywordDatabaseModel {
             return;
         }
 
-        let db_path = {
-            let preference = match settings::PREFERENCES.lock() {
-                Ok(preference) => preference.clone(),
-                _ => models::Preference::default(),
-            };
-            preference.database_path.clone()
-        };
-
+        let db_path = self.ctx.get_preference().database_path.clone();
         let keywords = text.as_str();
         match self.ctx.csam_service.save_keywords(db_path, keywords).await {
             Ok(_) => {

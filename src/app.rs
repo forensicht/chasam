@@ -3,8 +3,6 @@ pub mod config;
 pub mod factories;
 pub mod models;
 
-use anyhow::{bail, Result};
-
 use relm4::{
     actions::{ActionGroupName, RelmAction, RelmActionGroup},
     adw,
@@ -284,14 +282,8 @@ impl AsyncComponent for App {
     }
 }
 
-async fn load_database(ctx: AppContext) -> Result<()> {
-    use crate::app::config::settings;
-
-    let db_path = match settings::PREFERENCES.lock() {
-        Ok(preference) => preference.database_path.clone(),
-        Err(err) => bail!("Could not load csam database. Error {err}"),
-    };
-
+async fn load_database(ctx: AppContext) -> anyhow::Result<()> {
+    let db_path = ctx.get_preference().database_path.clone();
     ctx.csam_service.load_database(db_path).await?;
 
     Ok(())
