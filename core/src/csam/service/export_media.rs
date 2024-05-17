@@ -1,10 +1,11 @@
 use std::path::{Component, PathBuf};
+use std::sync::atomic::Ordering;
 
 use super::Service;
 
 impl Service {
     pub async fn export_media(&self, save_path: &PathBuf, medias: &[String]) -> anyhow::Result<()> {
-        *self.cancel_flag.write().unwrap() = false;
+        self.cancel_flag.store(false, Ordering::SeqCst);
 
         let export_path: Vec<(PathBuf, PathBuf)> = medias
             .into_iter()
@@ -22,7 +23,7 @@ impl Service {
             .collect();
 
         for (from_path, to_path) in export_path.iter() {
-            if *self.cancel_flag.read().unwrap() {
+            if self.cancel_flag.load(Ordering::SeqCst) {
                 break;
             }
             self.copy_media(from_path, to_path).await?;

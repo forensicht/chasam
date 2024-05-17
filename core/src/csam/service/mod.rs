@@ -1,4 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use super::repository::Repository;
 
@@ -13,14 +16,14 @@ pub use search_media::*;
 
 pub struct Service {
     repo: Arc<dyn Repository>,
-    cancel_flag: Arc<RwLock<bool>>,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl Service {
     pub fn new(repo: Arc<dyn Repository>) -> Self {
         Service {
             repo,
-            cancel_flag: Arc::new(RwLock::new(false)),
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -41,6 +44,6 @@ impl Service {
     }
 
     pub fn cancel_task(&self) {
-        *self.cancel_flag.write().unwrap() = true;
+        self.cancel_flag.store(true, Ordering::SeqCst);
     }
 }

@@ -4,8 +4,9 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::{
+    atomic::{AtomicBool, Ordering},
     mpsc::{self, Receiver},
-    Arc, RwLock,
+    Arc,
 };
 use std::thread;
 use threadpool::ThreadPool;
@@ -43,7 +44,7 @@ pub fn create_keyword_database(db_path: PathBuf, content: &str) -> anyhow::Resul
 pub fn create_hash_database<P>(
     db_path: PathBuf,
     root: P,
-    cancel_flag: Arc<RwLock<bool>>,
+    cancel_flag: Arc<AtomicBool>,
 ) -> anyhow::Result<usize>
 where
     P: AsRef<Path>,
@@ -53,7 +54,7 @@ where
     write_in_database(db_path, FILE_HASH, hash_receiver)
         .with_context(|| "Could not create hash database.")?;
 
-    *cancel_flag.write().unwrap() = false;
+    cancel_flag.store(false, Ordering::SeqCst);
     let mut count_files: usize = 0;
 
     let cpus = num_cpus::get();
@@ -65,7 +66,7 @@ where
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir() && self::is_image(e.path()))
     {
-        if *cancel_flag.read().unwrap() {
+        if cancel_flag.load(Ordering::SeqCst) {
             break;
         }
 
@@ -74,7 +75,7 @@ where
         let c_hash_sender = hash_sender.clone();
 
         thread_pool.execute(move || {
-            if *cancel_flag.read().unwrap() {
+            if cancel_flag.load(Ordering::SeqCst) {
                 return;
             }
 
@@ -101,7 +102,7 @@ where
 pub fn create_phash_database<P>(
     db_path: PathBuf,
     root: P,
-    cancel_flag: Arc<RwLock<bool>>,
+    cancel_flag: Arc<AtomicBool>,
 ) -> anyhow::Result<usize>
 where
     P: AsRef<Path>,
@@ -111,7 +112,7 @@ where
     write_in_database(db_path, FILE_PHASH, phash_receiver)
         .with_context(|| "Could not create perceptual hash database.")?;
 
-    *cancel_flag.write().unwrap() = false;
+    cancel_flag.store(false, Ordering::SeqCst);
     let mut count_files: usize = 0;
 
     let cpus = num_cpus::get();
@@ -123,7 +124,7 @@ where
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_type().is_dir() && self::is_image(e.path()))
     {
-        if *cancel_flag.read().unwrap() {
+        if cancel_flag.load(Ordering::SeqCst) {
             break;
         }
 
@@ -132,7 +133,7 @@ where
         let c_phash_sender = phash_sender.clone();
 
         thread_pool.execute(move || {
-            if *cancel_flag.read().unwrap() {
+            if cancel_flag.load(Ordering::SeqCst) {
                 return;
             }
 
@@ -189,7 +190,7 @@ fn write_in_database(
                 Err(err) => {
                     tracing::error!("Could not write in file.\nError: {:?}", err)
                 }
-                _ => {}
+                _ => (),
             }
         }
 
@@ -197,7 +198,7 @@ fn write_in_database(
             Err(err) => {
                 tracing::error!("Could not write in file.\nError: {:?}", err)
             }
-            _ => {}
+            _ => (),
         }
     });
 
@@ -304,7 +305,7 @@ mod tests {
     fn test_should_create_hash_database() {
         let db_path = PathBuf::from("D:/csam_test/");
         let root = "D:/images_test/target/original";
-        let cancel_flag = Arc::new(RwLock::new(false));
+        let cancel_flag = Arc::new(AtomicBool::new(false));
 
         match create_hash_database(db_path, root, cancel_flag.clone()) {
             Ok(size) => println!("Total hash created: {}", size),
@@ -316,7 +317,7 @@ mod tests {
     fn test_should_create_phash_database() {
         let db_path = PathBuf::from("D:/csam_test/");
         let root = "D:/images_test/target/original";
-        let cancel_flag = Arc::new(RwLock::new(false));
+        let cancel_flag = Arc::new(AtomicBool::new(false));
 
         match create_phash_database(db_path, root, cancel_flag.clone()) {
             Ok(size) => println!("Total files found: {}", size),

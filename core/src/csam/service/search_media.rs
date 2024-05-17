@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use threadpool::ThreadPool;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use walkdir::WalkDir;
@@ -17,7 +18,7 @@ pub enum StateMedia {
 
 impl Service {
     pub fn search_media(&self, dir: PathBuf, state_sender: Sender<StateMedia>) {
-        *self.cancel_flag.write().unwrap() = false;
+        self.cancel_flag.store(false, Ordering::SeqCst);
         let cancel_flag = self.cancel_flag.clone();
         let repo = self.repo.clone();
         let state_sender = state_sender.clone();
@@ -37,7 +38,7 @@ impl Service {
                 .filter_map(|e| e.ok())
                 .filter(|e| !e.file_type().is_dir() && Service::is_media(e.path()))
             {
-                if *cancel_flag.read().unwrap() {
+                if cancel_flag.load(Ordering::SeqCst) {
                     break;
                 }
 
@@ -49,7 +50,7 @@ impl Service {
                 let c_state_sender = state_sender.clone();
 
                 thread_pool.execute(move || {
-                    if *c_stop_flag.read().unwrap() {
+                    if c_stop_flag.load(Ordering::SeqCst) {
                         return;
                     }
 
