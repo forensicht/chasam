@@ -81,6 +81,8 @@ calculating = calculador
 images = Imágenes
 videos = Vídeos
 suspects-files = Archivos sospechosos
+loading = Cargando
+done = Hecho
 
 # Content
 open = Abierto

@@ -1,6 +1,6 @@
 use num_format::ToFormattedString;
 use relm4::{
-    component::{ComponentParts, SimpleComponent},
+    component::{Component, ComponentParts},
     gtk::{
         self,
         prelude::{BoxExt, OrientableExt, WidgetExt},
@@ -13,6 +13,7 @@ use crate::{context::AppContext, fl};
 pub struct StatusbarModel {
     ctx: AppContext,
     is_loading: bool,
+    is_calculating: bool,
     image_found: usize,
     video_found: usize,
     suspects_found: usize,
@@ -21,8 +22,8 @@ pub struct StatusbarModel {
 
 #[derive(Debug)]
 pub enum StatusbarInput {
-    Reset,
-    Loading,
+    Loading(bool),
+    Calculating,
     ImageFound(usize),
     CSAMFound(usize),
     VideoFound(usize),
@@ -30,10 +31,11 @@ pub enum StatusbarInput {
 }
 
 #[relm4::component(pub)]
-impl SimpleComponent for StatusbarModel {
+impl Component for StatusbarModel {
     type Init = AppContext;
     type Input = StatusbarInput;
     type Output = ();
+    type CommandOutput = ();
 
     view! {
         #[root]
@@ -46,6 +48,32 @@ impl SimpleComponent for StatusbarModel {
             set_margin_top: 4,
             set_halign: gtk::Align::Start,
             set_spacing: 6,
+
+            gtk::Box {
+                set_orientation: gtk::Orientation::Horizontal,
+                set_halign: gtk::Align::End,
+                set_spacing: 6,
+
+                #[name(spinner)]
+                gtk::Spinner {
+                    stop: (),
+                },
+
+                gtk::Label {
+                    #[watch]
+                    set_label: &if model.is_loading {
+                        fl!("loading").to_string()
+                    } else {
+                        fl!("done").to_string()
+                    },
+                },
+            },
+
+            gtk::Separator {
+                set_orientation: gtk::Orientation::Vertical,
+                set_margin_start: 6,
+                set_margin_end: 6,
+            },
 
             gtk::Label {
                 set_label: fl!("processed-files"),
@@ -64,7 +92,7 @@ impl SimpleComponent for StatusbarModel {
                 #[watch]
                 set_label: &if model.total_found > 0 {
                     model.total_found.to_formatted_string(&model.ctx.get_locale())
-                } else if model.is_loading {
+                } else if model.is_calculating {
                     fl!("calculating").to_string()
                 } else {
                     String::from("0")
@@ -118,6 +146,7 @@ impl SimpleComponent for StatusbarModel {
         let model = StatusbarModel {
             ctx,
             is_loading: false,
+            is_calculating: false,
             image_found: 0,
             video_found: 0,
             suspects_found: 0,
@@ -128,23 +157,38 @@ impl SimpleComponent for StatusbarModel {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update_with_view(
+        &mut self,
+        widgets: &mut Self::Widgets,
+        message: Self::Input,
+        sender: ComponentSender<Self>,
+        _root: &Self::Root,
+    ) {
         match message {
-            StatusbarInput::Reset => {
-                self.is_loading = false;
-                self.image_found = 0;
-                self.suspects_found = 0;
-                self.video_found = 0;
-                self.total_found = 0;
+            StatusbarInput::Loading(is_loading) => {
+                if is_loading {
+                    self.is_loading = true;
+                    self.is_calculating = false;
+                    self.image_found = 0;
+                    self.suspects_found = 0;
+                    self.video_found = 0;
+                    self.total_found = 0;
+                    widgets.spinner.start();
+                } else {
+                    self.is_loading = false;
+                    widgets.spinner.stop();
+                }
             }
-            StatusbarInput::Loading => self.is_loading = true,
+            StatusbarInput::Calculating => self.is_calculating = true,
             StatusbarInput::ImageFound(found) => self.image_found += found,
             StatusbarInput::CSAMFound(found) => self.suspects_found += found,
             StatusbarInput::VideoFound(found) => self.video_found += found,
             StatusbarInput::TotalFound(found) => {
                 self.total_found = found;
-                self.is_loading = false;
+                self.is_calculating = false;
             }
         }
+
+        self.update_view(widgets, sender);
     }
 }

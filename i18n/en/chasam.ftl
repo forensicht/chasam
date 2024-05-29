@@ -81,6 +81,8 @@ calculating = calculating
 images = Images
 videos = Videos
 suspects-files = Suspects files
+loading = Loading
+done = Done
 
 # Content
 open = Open

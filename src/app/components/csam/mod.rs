@@ -306,7 +306,7 @@ impl AsyncComponent for CsamModel {
         match message {
             CsamInput::StartSearch(path) => {
                 self.media_list_wrapper.clear();
-                self.statusbar.emit(StatusbarInput::Reset);
+                self.statusbar.emit(StatusbarInput::Loading(true));
                 self.media_details.emit(MediaDetailsInput::Reset);
                 self.on_search(path, &sender).await;
             }
@@ -409,6 +409,7 @@ impl AsyncComponent for CsamModel {
         match message {
             CsamCommandOutput::SearchCompleted => {
                 self.searchbar.emit(SearchBarInput::SearchCompleted);
+                self.statusbar.emit(StatusbarInput::Loading(false));
             }
             CsamCommandOutput::MediaFound(found) => {
                 self.statusbar.emit(StatusbarInput::TotalFound(found));
@@ -452,7 +453,7 @@ impl AsyncComponent for CsamModel {
 
 impl CsamModel {
     async fn on_search(&mut self, path: PathBuf, sender: &AsyncComponentSender<CsamModel>) {
-        self.statusbar.emit(StatusbarInput::Loading);
+        self.statusbar.emit(StatusbarInput::Calculating);
 
         let (tx, mut rx) = relm4::tokio::sync::mpsc::channel(100);
 
