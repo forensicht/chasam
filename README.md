@@ -48,4 +48,4 @@ rustup default stable-gnu
 
 Copyright 2024 © Tiago Martins
 
-Dompeg is released under the terms of the [Mozilla Public License v2](https://github.com/forensicht/dompeg/blob/main/LICENSE)
+ChaSAM is released under the terms of the [Mozilla Public License v2](https://github.com/forensicht/dompeg/blob/main/LICENSE)
