@@ -36,12 +36,12 @@ where
 }
 
 #[allow(unused)]
-pub fn get_file_hash_sha1<P>(path: P) -> Result<String>
+pub fn get_sha1_hash_of_file<P>(path: P) -> Result<String>
 where
     P: AsRef<Path>,
 {
     if let Some(p) = path.as_ref().to_str() {
-        let data = fs::read(&p)?;
+        let data = fs::read(p)?;
         let hash = &hex::encode(Sha1::digest(&data));
         return Ok(hash.to_owned());
     }
@@ -50,12 +50,12 @@ where
 }
 
 #[allow(unused)]
-pub fn get_file_hash_md5<P>(path: P) -> Result<String>
+pub fn get_md5_hash_of_file<P>(path: P) -> Result<String>
 where
     P: AsRef<Path>,
 {
     if let Some(p) = path.as_ref().to_str() {
-        let data = fs::read(&p)?;
+        let data = fs::read(p)?;
         let digest = md5::compute(data);
         return Ok(format!("{:x}", digest));
     }
@@ -64,7 +64,7 @@ where
 }
 
 #[allow(unused)]
-pub fn get_file_perceptual_hash<P>(path: P) -> Result<u64>
+pub fn get_perceptual_hash_of_file<P>(path: P) -> Result<u64>
 where
     P: AsRef<Path>,
 {
@@ -77,7 +77,7 @@ where
 }
 
 #[allow(unused)]
-pub fn get_image_perceptual_hash(img: DynamicImage) -> Result<u64> {
+pub fn get_perceptual_hash_of_image(img: DynamicImage) -> Result<u64> {
     phash::perception_hash(img, phash::ColorType::Threshold)
 }
 
@@ -142,43 +142,31 @@ mod tests {
     }
 
     #[test]
-    fn test_get_file_hash_sha1() {
-        let path = Path::new("D:/images_test/horse.jpg");
-        let hash = get_file_hash_sha1(path).unwrap_or_default();
-        assert_ne!(hash, "");
+    fn test_get_sha1_hash_of_file() {
+        let path = Path::new("../data/img/horse.jpg");
+        let hash = get_sha1_hash_of_file(path).expect("Failed to get sha1 hash of file.");
+
+        // Assert
+        assert_eq!(hash, "b7b6e21916253608c9ff081db046a58100536963");
     }
 
     #[test]
-    fn test_get_file_hash_md5() {
-        let path = Path::new("D:/images_test/horse.jpg");
-        let hash = get_file_hash_md5(path).unwrap_or_default();
-        assert_ne!(hash, "");
-    }
+    fn test_get_md5_hash_of_file() {
+        let path = Path::new("../data/img/horse.jpg");
+        let hash = get_md5_hash_of_file(path).expect("Failed to get md5 hash of file.");
 
-    #[test]
-    fn test_make_thumbnail() {
-        let media_path = Path::new("D:/images_test/horse.jpg");
-        let thumb_path = Path::new("D:/images_test/horse_thumb.jpg");
-        let thumb_size = 320;
-
-        match make_thumbnail(media_path, thumb_path, thumb_size) {
-            Ok(_) => assert!(true),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert_eq!(hash, "506bf7f41ca0c6f9e7612c04e93ab235");
     }
 
     #[test]
     fn test_make_thumbnail_to_vec() {
-        let media_path = Path::new("D:/images_test/horse.jpg");
+        let media_path = Path::new("../data/img/horse.jpg");
         let thumb_size = 240;
+        let (_, buf) = make_thumbnail_to_vec(media_path, thumb_size)
+            .expect("Failed to make thumbnail for vec.");
 
-        match make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((_, buf)) => {
-                let len = buf.len();
-                println!("image bytes: {}", len);
-                assert_ne!(len, 0);
-            }
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert_eq!(buf.len(), 8060);
     }
 }

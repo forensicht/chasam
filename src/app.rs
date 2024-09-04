@@ -180,12 +180,9 @@ impl AsyncComponent for App {
     ) -> AsyncComponentParts<Self> {
         let ctx = AppContext::new();
 
-        match load_database(ctx.clone()).await {
-            Err(err) => {
-                tracing::error!("{}", err);
-                std::process::exit(1);
-            }
-            _ => {}
+        if let Err(err) = load_database(ctx.clone()).await {
+            tracing::error!("{}", err);
+            // std::process::exit(1);
         };
 
         let preferences: &str = fl!("preferences");

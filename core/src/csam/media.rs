@@ -64,7 +64,7 @@ impl Media {
                 .as_secs() as i64;
 
         // get the md5 hash of the file
-        let md5_hash = utils::media::get_file_hash_md5(&media_path).unwrap_or_default();
+        let md5_hash = utils::media::get_md5_hash_of_file(&media_path).unwrap_or_default();
 
         // make thumbnail
         let (dynamic_img, img_buf) = match media_type {
@@ -87,12 +87,13 @@ impl Media {
         };
 
         // perceptual hash of the file
+        #[allow(clippy::unnecessary_unwrap)]
         let phash_vec = if media_size > 0 && dynamic_img.is_some() {
             dynamic_img
                 .unwrap()
                 .into_iter()
                 .map(|img| {
-                    utils::media::get_image_perceptual_hash(img)
+                    utils::media::get_perceptual_hash_of_image(img)
                         .with_context(|| "could not generate perceptual hash")
                 })
                 .collect::<anyhow::Result<Vec<u64>>>()

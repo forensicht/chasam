@@ -15,7 +15,7 @@ impl<R: Read> Lines<R> {
         }
     }
 
-    pub fn next<'a>(&'a mut self) -> Option<io::Result<&'a str>> {
+    pub fn next(&mut self) -> Option<io::Result<&str>> {
         self.buf.clear();
 
         match self.reader.read_line(&mut self.buf) {

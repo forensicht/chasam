@@ -1,3 +1,6 @@
+#![allow(clippy::explicit_counter_loop)]
+#![allow(clippy::needless_range_loop)]
+
 use super::transform_image as transform;
 use anyhow::Result;
 use image::{imageops::FilterType, DynamicImage};
@@ -49,7 +52,7 @@ pub fn average_hash(img: DynamicImage) -> Result<u64> {
         }
     }
 
-    let avg = sum / 64 as f64;
+    let avg = sum / 64_f64;
     let mut idx: u64 = 0;
     let mut hash: u64 = 0;
 
@@ -99,7 +102,7 @@ pub fn perception_hash(img: DynamicImage, color_type: ColorType) -> Result<u64> 
     // excluding the first term since the DC coefficient can be significantly different from the
     // other values and will throw off the average.
     sum -= dct[0][0];
-    let avg = sum / 63 as f64;
+    let avg = sum / 63_f64;
 
     // extract the hash.
     let mut hash: u64 = 0;
@@ -132,53 +135,39 @@ mod tests {
 
     #[test]
     fn test_difference_hash() {
-        let media_path = Path::new("D:/images_test/horse.jpg");
+        let media_path = Path::new("../data/img/horse.jpg");
         let thumb_size = 240;
+        let (thumb, _) = media::make_thumbnail_to_vec(media_path, thumb_size)
+            .expect("Failed to make thumbnail for vec.");
+        let hash = difference_hash(thumb).expect("Failed to get difference hash of image.");
 
-        match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, _)) => match difference_hash(img) {
-                Ok(hash) => {
-                    println!("D-HASH: {}", format!("{hash:X}"));
-                    assert_ne!(hash, 0);
-                }
-                Err(err) => assert!(false, "{err}"),
-            },
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert_eq!(hash, 7218319915078608857_u64);
     }
 
     #[test]
     fn test_average_hash() {
-        let media_path = Path::new("D:/images_test/horse.jpg");
+        let media_path = Path::new("../data/img/horse.jpg");
         let thumb_size = 240;
+        let (thumb, _) = media::make_thumbnail_to_vec(media_path, thumb_size)
+            .expect("Failed to make thumbnail for vec.");
+        let hash = average_hash(thumb).expect("Failed to get average hash of image.");
 
-        match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, _)) => match average_hash(img) {
-                Ok(hash) => {
-                    println!("A-HASH: {}", format!("{hash:X}"));
-                    assert_ne!(hash, 0);
-                }
-                Err(err) => assert!(false, "{err}"),
-            },
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert_eq!(hash, 13942001919553048066_u64);
     }
 
     #[test]
     fn test_perception_hash() {
-        let media_path = Path::new("D:/images_test/horse.jpg");
+        let media_path = Path::new("../data/img/horse.jpg");
         let thumb_size = 240;
+        let (thumb, _) = media::make_thumbnail_to_vec(media_path, thumb_size)
+            .expect("Failed to make thumbnail for vec.");
+        let hash = perception_hash(thumb, ColorType::Gray)
+            .expect("Failed to get perception hash of image.");
 
-        match media::make_thumbnail_to_vec(media_path, thumb_size) {
-            Ok((img, _)) => match perception_hash(img, ColorType::Gray) {
-                Ok(hash) => {
-                    println!("P-HASH: {}", format!("{hash:X}"));
-                    assert_ne!(hash, 0);
-                }
-                Err(err) => assert!(false, "{err}"),
-            },
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert_eq!(hash, 16279291063186904140_u64);
     }
 
     #[test]

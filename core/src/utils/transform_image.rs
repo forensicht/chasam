@@ -92,7 +92,7 @@ fn forward_transform(input: &mut [f64], temp: &mut [f64], len: usize) {
     forward_transform(&mut temp[half_len..], input, half_len);
 
     for i in 0..half_len - 1 {
-        input[i * 2 + 0] = temp[i];
+        input[i * 2] = temp[i];
         input[i * 2 + 1] = temp[i + half_len] + temp[i + half_len + 1];
     }
 

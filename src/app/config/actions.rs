@@ -9,7 +9,7 @@ relm4::new_stateless_action!(QuitAction, AppActionGroup, "quit");
 
 pub(crate) fn init() {
     let app = main_adw_application();
-    let mut actions = RelmActionGroup::<AppActionGroup>::new();
+    app.set_accelerators_for_action::<QuitAction>(&["<Control>q"]);
 
     let quit_action = {
         let app = app.clone();
@@ -18,7 +18,7 @@ pub(crate) fn init() {
         })
     };
 
+    let mut actions = RelmActionGroup::<AppActionGroup>::new();
     actions.add_action(quit_action);
-    app.set_accelerators_for_action::<QuitAction>(&["<Control>q"]);
-    app.set_action_group(Some(&actions.into_action_group()));
+    actions.register_for_main_application();
 }

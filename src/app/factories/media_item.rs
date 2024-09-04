@@ -61,10 +61,7 @@ impl MediaItem {
     }
 
     pub fn is_video(&self) -> bool {
-        match self.media.media_type {
-            models::media::MediaType::Video => true,
-            _ => false,
-        }
+        matches!(self.media.media_type, models::media::MediaType::Video)
     }
 
     pub fn is_csam(&self) -> bool {
@@ -72,7 +69,7 @@ impl MediaItem {
     }
 
     fn get_pixbuf(data: &[u8]) -> Option<Pixbuf> {
-        let bytes: VecDeque<u8> = data.into_iter().cloned().collect();
+        let bytes: VecDeque<u8> = data.iter().cloned().collect();
         Pixbuf::from_read(bytes).ok()
     }
 }

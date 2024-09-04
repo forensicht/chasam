@@ -3,6 +3,7 @@ use relm4_icons::icon_names;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, EnumIter, PartialEq)]
 pub enum SidebarOption {
     CSAM,

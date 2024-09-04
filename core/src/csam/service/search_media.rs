@@ -89,8 +89,7 @@ impl Service {
     fn notify_result(mut media_receiver: Receiver<Media>, state_sender: Sender<StateMedia>) {
         std::thread::spawn(move || {
             let mut count = 0;
-            let mut vec_medias: Vec<Media> = vec![];
-            vec_medias.reserve(100);
+            let mut vec_medias: Vec<Media> = Vec::with_capacity(100);
 
             while let Some(media) = media_receiver.blocking_recv() {
                 vec_medias.push(media);
@@ -118,9 +117,6 @@ impl Service {
 
     #[inline]
     fn is_media(entry: &Path) -> bool {
-        match entry.extension() {
-            Some(e) if utils::media::is_media(&e.to_string_lossy().to_lowercase()) => true,
-            _ => false,
-        }
+        matches!(entry.extension(), Some(e) if utils::media::is_media(&e.to_string_lossy().to_lowercase()))
     }
 }

@@ -83,7 +83,7 @@ pub struct MediaDetail {
     pub hash: String,
     pub phash: String,
     pub match_type: String,
-    pub hamming: String,
+    // pub hamming: String,
     pub img_buf: Option<Bytes>,
 }
 
@@ -108,7 +108,7 @@ impl From<&Media> for MediaDetail {
             hash: media.hash.clone(),
             phash: format!("{:X}", media.phash),
             match_type: media.match_type.clone(),
-            hamming: media.hamming.to_string(),
+            // hamming: media.hamming.to_string(),
             img_buf: media.img_buf.clone(),
         }
     }

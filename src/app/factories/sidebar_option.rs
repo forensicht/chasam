@@ -9,6 +9,7 @@ use relm4::{
     view,
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct SidebarOptionModel {
     pub index: DynamicIndex,
@@ -85,7 +86,7 @@ impl AsyncFactoryComponent for SidebarOptionModel {
         match message {
             SidebarOptionInput::Select => {
                 sender
-                    .output(SidebarOptionOutput::Selected(self.sidebar_option.clone()))
+                    .output(SidebarOptionOutput::Selected(self.sidebar_option))
                     .unwrap_or_default();
             }
         }

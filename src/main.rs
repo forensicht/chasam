@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 mod app;
 mod context;
@@ -10,7 +10,7 @@ use relm4::RelmApp;
 use app::App;
 
 fn main() -> Result<()> {
-    std::env::set_var("RUST_BACKTRACE", "full");
+    std::env::set_var("RUST_BACKTRACE", "1");
 
     let _ = relm4::RELM_THREADS.set(num_cpus::get());
 

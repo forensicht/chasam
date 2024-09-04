@@ -20,7 +20,7 @@ where
     P: AsRef<Path>,
 {
     let dump = dump_video_frames(media_path)?;
-    let frames = frames_to_image(&dump)?;
+    let frames = convert_frames_to_image(&dump)?;
     let buf = concat_frames(&frames)?;
 
     Ok((frames, buf))
@@ -29,9 +29,7 @@ where
 fn dump_video_frames<P: AsRef<Path>>(video_path: P) -> anyhow::Result<VideoDump> {
     ffmpeg::init()?;
 
-    let mut options = ffmpeg::Dictionary::new();
-    options.set("framerate", "1");
-
+    let options = ffmpeg::Dictionary::new();
     let mut input_format_context = ffmpeg::format::input_with_dictionary(&video_path, options)?;
 
     // shows a dump of the video
@@ -52,9 +50,11 @@ fn dump_video_frames<P: AsRef<Path>>(video_path: P) -> anyhow::Result<VideoDump>
         (stream_index, frame_rate, decoder)
     };
 
-    let mut video_dump = VideoDump::default();
-    video_dump.width = decoder.width();
-    video_dump.height = decoder.height();
+    let mut video_dump = VideoDump {
+        width: decoder.width(),
+        height: decoder.height(),
+        ..Default::default()
+    };
 
     let mut sws_context = scaling::Context::get(
         decoder.format(),
@@ -145,7 +145,7 @@ fn concat_frames(frames: &[DynamicImage]) -> anyhow::Result<Vec<u8>> {
     Ok(buf)
 }
 
-fn frames_to_image(dump: &VideoDump) -> anyhow::Result<Vec<DynamicImage>> {
+fn convert_frames_to_image(dump: &VideoDump) -> anyhow::Result<Vec<DynamicImage>> {
     let width = dump.width;
     let height = dump.height;
     let frames = dump
@@ -203,8 +203,11 @@ fn distribute_frames(nframes: usize, nparts: usize) -> anyhow::Result<VecDeque<u
         distribution.push_back(base_distribution);
     }
 
-    for i in 0..remainder {
-        distribution[i] += 1;
+    // for i in 0..remainder {
+    //     distribution[i] += 1;
+    // }
+    for item in distribution.iter_mut().take(remainder) {
+        *item += 1;
     }
 
     Ok(distribution)
@@ -213,69 +216,37 @@ fn distribute_frames(nframes: usize, nparts: usize) -> anyhow::Result<VecDeque<u
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image;
 
     #[test]
     fn test_should_distribute_frames_in_balanced_parts() {
         let nframes = 15;
         let nparts = 9;
         let distribution = distribute_frames(nframes, nparts).unwrap();
-
         let want_distribution = VecDeque::from([2, 2, 2, 2, 2, 2, 1, 1, 1]);
 
+        // Assert
         assert_eq!(distribution, want_distribution);
         assert_eq!(nframes, distribution.iter().sum());
     }
 
     #[test]
     fn test_should_dump_video_frames() {
-        let filename = "D:\\video\\vid00.mp4";
-        match dump_video_frames(filename) {
-            Ok(dump) => {
-                println!("Frames: {}", dump.frames.len());
-                save_file_dump_frame(&dump).expect("error saving file dump frame");
-                assert!(true);
-            }
-            Err(err) => assert!(false, "{err}"),
-        }
+        let filename = "../data/video/vid.mp4";
+        let video_dump = dump_video_frames(filename).expect("Failed to dump frames.");
+
+        // Assert
+        assert_eq!(video_dump.frames.len(), 14);
     }
 
     #[test]
     fn test_should_concat_video_frames() {
-        let filename = "D:\\video\\vid00.mp4";
-        if let Ok(dump) = dump_video_frames(filename) {
-            match frames_to_image(&dump) {
-                Ok(frames) => match concat_frames(&frames) {
-                    Ok(buf) => {
-                        let len = buf.len();
-                        println!("image bytes: {}", len);
-                        assert_ne!(len, 0);
-                    }
-                    Err(err) => assert!(false, "{err}"),
-                },
-                Err(err) => assert!(false, "{err}"),
-            }
-        } else {
-            assert!(false);
-        }
-    }
+        let filename = "../data/video/vid.mp4";
+        let video_dump = dump_video_frames(filename).expect("Failed to dump frames.");
+        let video_frames =
+            convert_frames_to_image(&video_dump).expect("Failed to convert frames to image.");
+        let img_buf = concat_frames(&video_frames).expect("Failed to concat frames.");
 
-    fn save_file_dump_frame(dump: &VideoDump) -> anyhow::Result<()> {
-        let width = dump.width;
-        let height = dump.height;
-        let frames = &dump.frames;
-
-        for (index, frame) in frames.iter().enumerate() {
-            let path = format!("D:\\video\\frames\\vid_{}.jpeg", index);
-            image::save_buffer(
-                path,
-                &frame.slice(..),
-                width,
-                height,
-                image::ColorType::Rgba8,
-            )?;
-        }
-
-        Ok(())
+        // Assert
+        assert_ne!(img_buf.len(), 0);
     }
 }

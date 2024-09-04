@@ -159,10 +159,7 @@ impl AsyncComponent for PreferencesModel {
                                             set_valign: gtk::Align::Center,
                                             #[name = "chk_language"]
                                             append = &gtk::CheckButton {
-                                                set_active: match model.preference.language {
-                                                    models::Language::English => true,
-                                                    _ => false,
-                                                },
+                                                set_active: matches!(model.preference.language, models::Language::English),
                                                 connect_toggled[sender] => move |chk_button| {
                                                     if chk_button.is_active() {
                                                         sender
@@ -192,10 +189,7 @@ impl AsyncComponent for PreferencesModel {
                                             set_valign: gtk::Align::Center,
                                             append = &gtk::CheckButton {
                                                 set_group: Some(&chk_language),
-                                                set_active: match model.preference.language {
-                                                    models::Language::Portuguese => true,
-                                                    _ => false,
-                                                },
+                                                set_active: matches!(model.preference.language, models::Language::Portuguese),
                                                 connect_toggled[sender] => move |chk_button| {
                                                     if chk_button.is_active() {
                                                         sender
@@ -225,10 +219,7 @@ impl AsyncComponent for PreferencesModel {
                                             set_valign: gtk::Align::Center,
                                             append = &gtk::CheckButton {
                                                 set_group: Some(&chk_language),
-                                                set_active: match model.preference.language {
-                                                    models::Language::Spanish => true,
-                                                    _ => false,
-                                                },
+                                                set_active: matches!(model.preference.language, models::Language::Spanish),
                                                 connect_toggled[sender] => move |chk_button| {
                                                     if chk_button.is_active() {
                                                         sender
@@ -494,9 +485,8 @@ impl AsyncComponent for PreferencesModel {
 
 impl PreferencesModel {
     async fn save_preferences(&self) {
-        match settings::save_preferences(&self.preference).await {
-            Err(error) => tracing::error!("{error}"),
-            _ => {}
+        if let Err(error) = settings::save_preferences(&self.preference).await {
+            tracing::error!("{error}");
         }
     }
 

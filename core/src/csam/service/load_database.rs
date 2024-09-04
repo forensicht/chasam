@@ -43,13 +43,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_load_csam_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
+        let db_path = PathBuf::from("../data/db/");
         let repo = Arc::new(InMemoryRepository::new());
         let service = Service::new(repo);
+        service
+            .load_database(db_path)
+            .await
+            .expect("Failed to load database.");
 
-        match service.load_database(db_path).await {
-            Ok(_) => assert!(true),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(true);
     }
 }

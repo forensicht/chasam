@@ -8,14 +8,13 @@ impl Service {
         self.cancel_flag.store(false, Ordering::SeqCst);
 
         let export_path: Vec<(PathBuf, PathBuf)> = medias
-            .into_iter()
+            .iter()
             .map(|media| {
                 let from_path = PathBuf::from(media);
                 let mut to_path = save_path.to_owned();
                 for component in from_path.components() {
-                    match component {
-                        Component::Normal(component) => to_path.push(component),
-                        _ => (),
+                    if let Component::Normal(component) = component {
+                        to_path.push(component)
                     }
                 }
                 (from_path, to_path)
@@ -52,20 +51,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_export_media() {
+        let save_path = PathBuf::from("../data/tmp/");
+        let medias = vec!["../data/img/horse.jpg".to_string()];
+
         let repo = Arc::new(InMemoryRepository::new());
         let service = Service::new(repo);
+        service
+            .export_media(&save_path, &medias)
+            .await
+            .expect("Failed to export media.");
 
-        let save_path = PathBuf::from("D:/export/");
-        let medias = vec![
-            "D:/images_test/target/original/imgCH_640_007.jpg".to_string(),
-            "D:/images_test/target/blur/imgCH_640_005.jpg".to_string(),
-            "D:/images_test/target/gray/imgCH_640_004.jpg".to_string(),
-            "D:/images_test/target/original/imgCH_640_006.jpg".to_string(),
-        ];
-
-        match service.export_media(&save_path, &medias).await {
-            Ok(_) => assert!(true),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(true);
     }
 }

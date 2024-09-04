@@ -210,15 +210,14 @@ impl Component for MediaDetailsModel {
         _root: &Self::Root,
     ) {
         match message {
-            MediaDetailsInput::OpenMedia => match open::that(&self.media.path) {
-                Err(_) => {
+            MediaDetailsInput::OpenMedia => {
+                if open::that(&self.media.path).is_err() {
                     let msg = format!("{} {}", fl!("open-media-error"), self.media.name.as_str());
                     sender
                         .output(MediaDetailsOutput::Notify(msg, 5))
                         .unwrap_or_default();
                 }
-                _ => (),
-            },
+            }
             MediaDetailsInput::ShowMedia(media) => {
                 self.pixbuf = match media.media_type {
                     models::MediaType::Image => gdk_pixbuf::Pixbuf::from_file(&media.path).ok(),

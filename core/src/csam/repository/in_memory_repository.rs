@@ -4,7 +4,7 @@ use std::sync::RwLock;
 use super::Repository;
 use crate::utils;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InMemoryRepository {
     keyword_store: RwLock<HashSet<String>>,
     hash_store: RwLock<HashSet<String>>,
@@ -13,11 +13,7 @@ pub struct InMemoryRepository {
 
 impl InMemoryRepository {
     pub fn new() -> Self {
-        Self {
-            keyword_store: RwLock::new(HashSet::new()),
-            hash_store: RwLock::new(HashSet::new()),
-            phash_store: RwLock::new(vec![]),
-        }
+        Self::default()
     }
 }
 

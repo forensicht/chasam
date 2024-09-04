@@ -261,7 +261,7 @@ impl AsyncComponent for CsamModel {
                 "label",
             )
             .transform_to({
-                let locale = ctx.get_locale().clone();
+                let locale = ctx.get_locale();
                 move |_, n_items: u32| Some(n_items.to_formatted_string(&locale).to_value())
             })
             .flags(glib::BindingFlags::SYNC_CREATE)
@@ -418,7 +418,7 @@ impl AsyncComponent for CsamModel {
                 Ok(medias) => {
                     let media_items = medias
                         .into_iter()
-                        .map(|media| MediaItem::new(media))
+                        .map(MediaItem::new)
                         .inspect(|item| {
                             if item.is_video() {
                                 self.statusbar.emit(StatusbarInput::VideoFound(1));
@@ -471,10 +471,7 @@ impl CsamModel {
                                     .unwrap_or_default();
                             }
                             StateMedia::Ok(medias) => {
-                                let vec_medias = medias
-                                    .iter()
-                                    .map(|media| models::Media::from(media))
-                                    .collect();
+                                let vec_medias = medias.iter().map(models::Media::from).collect();
 
                                 out.send(CsamCommandOutput::AddMedia(Ok(vec_medias)))
                                     .unwrap_or_default();
@@ -516,7 +513,7 @@ impl CsamModel {
             }
         }
 
-        if selected_media.len() == 0 {
+        if selected_media.is_empty() {
             sender.input(CsamInput::ShowInfoDialog(fl!("select-media").to_string()));
             return;
         }
@@ -569,14 +566,12 @@ impl CsamModel {
             if self.thumbnail_size < ZOOM_LIMIT {
                 self.thumbnail_size += ZOOM_SIZE;
             }
-        } else {
-            if self.thumbnail_size > THUMBNAIL_SIZE {
-                let mut thumb_size = self.thumbnail_size - ZOOM_SIZE;
-                if thumb_size < THUMBNAIL_SIZE {
-                    thumb_size = THUMBNAIL_SIZE;
-                }
-                self.thumbnail_size = thumb_size;
+        } else if self.thumbnail_size > THUMBNAIL_SIZE {
+            let mut thumb_size = self.thumbnail_size - ZOOM_SIZE;
+            if thumb_size < THUMBNAIL_SIZE {
+                thumb_size = THUMBNAIL_SIZE;
             }
+            self.thumbnail_size = thumb_size;
         }
 
         let len = self.media_list_wrapper.len();

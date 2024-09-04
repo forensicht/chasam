@@ -79,7 +79,7 @@ where
                 return;
             }
 
-            match utils::media::get_file_hash_md5(entry.path()) {
+            match utils::media::get_md5_hash_of_file(entry.path()) {
                 Ok(hash) => {
                     c_hash_sender.send(hash).expect("could not send hash");
                 }
@@ -137,7 +137,7 @@ where
                 return;
             }
 
-            match utils::media::get_file_perceptual_hash(entry.path()) {
+            match utils::media::get_perceptual_hash_of_file(entry.path()) {
                 Ok(hash) => {
                     c_phash_sender
                         .send(hash.to_string())
@@ -186,19 +186,13 @@ fn write_in_database(
             content.push_str(&value);
             content.push('\n');
 
-            match writer.write_all(content.as_bytes()) {
-                Err(err) => {
-                    tracing::error!("Could not write in file.\nError: {:?}", err)
-                }
-                _ => (),
+            if let Err(err) = writer.write_all(content.as_bytes()) {
+                tracing::error!("Could not write in file.\nError: {:?}", err);
             }
         }
 
-        match writer.flush() {
-            Err(err) => {
-                tracing::error!("Could not write in file.\nError: {:?}", err)
-            }
-            _ => (),
+        if let Err(err) = writer.flush() {
+            tracing::error!("Could not write in file.\nError: {:?}", err);
         }
     });
 
@@ -206,10 +200,7 @@ fn write_in_database(
 }
 
 fn is_image(entry: &Path) -> bool {
-    match entry.extension() {
-        Some(e) if utils::media::is_image(&e.to_string_lossy().to_lowercase()) => true,
-        _ => false,
-    }
+    matches!(entry.extension(), Some(e) if utils::media::is_image(&e.to_string_lossy().to_lowercase()))
 }
 
 pub fn load_keyword_database(db_path: PathBuf, repo: Arc<dyn Repository>) -> anyhow::Result<()> {
@@ -292,75 +283,65 @@ mod tests {
 
     #[test]
     fn test_should_create_keyword_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
+        let db_path = PathBuf::from("../data/tmp/");
         let content = "keyword_1\nkeyword_2\nkeyword_3";
+        create_keyword_database(db_path, content).expect("Failed to create keyword database.");
 
-        match create_keyword_database(db_path, content) {
-            Ok(_) => assert!(true),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(true);
     }
 
     #[test]
     fn test_should_create_hash_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
-        let root = "D:/images_test/target/original";
+        let db_path = PathBuf::from("../data/tmp/");
+        let root = "../data/img/";
         let cancel_flag = Arc::new(AtomicBool::new(false));
+        let total = create_hash_database(db_path, root, cancel_flag.clone())
+            .expect("Failed to create hash database.");
 
-        match create_hash_database(db_path, root, cancel_flag.clone()) {
-            Ok(size) => println!("Total hash created: {}", size),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(total > 0);
     }
 
     #[test]
     fn test_should_create_phash_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
-        let root = "D:/images_test/target/original";
+        let db_path = PathBuf::from("../data/tmp/");
+        let root = "../data/img/";
         let cancel_flag = Arc::new(AtomicBool::new(false));
+        let total = create_phash_database(db_path, root, cancel_flag.clone())
+            .expect("Failed to create phash database.");
 
-        match create_phash_database(db_path, root, cancel_flag.clone()) {
-            Ok(size) => println!("Total files found: {}", size),
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(total > 0);
     }
 
     #[test]
     fn test_should_load_keyword_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
+        let db_path = PathBuf::from("../data/db/");
         let repo = Arc::new(InMemoryRepository::new());
+        load_keyword_database(db_path, repo.clone()).expect("Failed to load keyword database.");
 
-        match load_keyword_database(db_path, repo.clone()) {
-            Ok(_) => {
-                assert!(repo.count_keyword() > 0);
-            }
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(repo.count_keyword() > 0);
     }
 
     #[test]
     fn test_should_load_hash_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
+        let db_path = PathBuf::from("../data/db/");
         let repo = Arc::new(InMemoryRepository::new());
+        load_hash_database(db_path, repo.clone()).expect("Failed to load hash_database.");
 
-        match load_hash_database(db_path, repo.clone()) {
-            Ok(_) => {
-                assert!(repo.count_hash() > 0);
-            }
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(repo.count_hash() > 0);
     }
 
     #[test]
     fn test_should_load_phash_database() {
-        let db_path = PathBuf::from("D:/csam_test/");
+        let db_path = PathBuf::from("../data/db/");
         let repo = Arc::new(InMemoryRepository::new());
+        load_phash_database(db_path, repo.clone()).expect("Failed to load phash database.");
 
-        match load_phash_database(db_path, repo.clone()) {
-            Ok(_) => {
-                assert!(repo.count_phash() > 0);
-            }
-            Err(err) => assert!(false, "{err}"),
-        }
+        // Assert
+        assert!(repo.count_phash() > 0);
     }
 }
