@@ -30,7 +30,12 @@ impl Service {
             Self::notify_result(media_receiver, state_sender.clone());
 
             let mut found_files: usize = 0;
-            let thread_pool = ThreadPool::new(num_cpus::get());
+            let cpus = if num_cpus::get() > 1 {
+                num_cpus::get() - 1
+            } else {
+                num_cpus::get()
+            };
+            let thread_pool = ThreadPool::new(cpus);
 
             for entry in WalkDir::new(dir)
                 .follow_links(false)

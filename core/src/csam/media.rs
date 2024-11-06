@@ -16,7 +16,7 @@ pub enum MediaType {
 #[derive(Debug, Clone)]
 enum MatchType {
     MD5,
-    PHash(u32),
+    PHash(u64, u32),
     Keyword(String),
 }
 
@@ -105,13 +105,13 @@ impl Media {
         let (phash, match_type, distance_hamming) = {
             let phash_vec = phash_vec?;
 
-            if phash_vec.len() == 1 {
+            if phash_vec.len() > 0 {
                 let phash = phash_vec[0];
-                match Media::find_csam(repo.clone(), &name, &md5_hash, phash) {
+                match Media::find_csam(repo.clone(), &name, &md5_hash, &phash_vec) {
                     Some(match_type) => match match_type {
                         MatchType::MD5 => (phash, String::from("MD5"), 0),
                         MatchType::Keyword(keyword) => (phash, format!("Keyword [ {keyword} ]"), 0),
-                        MatchType::PHash(distance_hamming) => (
+                        MatchType::PHash(phash, distance_hamming) => (
                             phash,
                             format!("PHash [ {distance_hamming} ]"),
                             distance_hamming,
@@ -120,21 +120,7 @@ impl Media {
                     None => (0u64, String::new(), 0u32),
                 }
             } else {
-                phash_vec
-                    .into_iter()
-                    .map(
-                        |phash| match Media::find_csam_by_phash(repo.clone(), phash) {
-                            Some(distance_hamming) => (
-                                phash,
-                                format!("PHash [ {distance_hamming} ]"),
-                                distance_hamming,
-                            ),
-                            None => (0u64, String::new(), 0u32),
-                        },
-                    )
-                    .filter(|phash| phash.0 != 0 && phash.2 > 0)
-                    .reduce(|lhs, rhs| if lhs.2 < rhs.2 { lhs } else { rhs })
-                    .unwrap_or((0u64, String::new(), 0))
+                (0u64, String::new(), 0u32)
             }
         };
 
@@ -158,7 +144,7 @@ impl Media {
         repo: Arc<dyn Repository>,
         name: &str,
         hash: &str,
-        phash: u64,
+        phash_vec: &[u64],
     ) -> Option<MatchType> {
         if Media::find_csam_by_hash(repo.clone(), hash) {
             return Some(MatchType::MD5);
@@ -168,12 +154,29 @@ impl Media {
             return Some(MatchType::Keyword(keyword));
         }
 
-        if phash == 0 {
+        if phash_vec.len() == 0 {
             return None;
         }
 
-        if let Some(distance_hamming) = Media::find_csam_by_phash(repo.clone(), phash) {
-            return Some(MatchType::PHash(distance_hamming));
+        if phash_vec.len() == 1 {
+            let phash = phash_vec[0];
+            if let Some(distance_hamming) = Media::find_csam_by_phash(repo.clone(), phash) {
+                return Some(MatchType::PHash(phash, distance_hamming));
+            }
+        } else {
+            let phash = phash_vec
+                .into_iter()
+                .map(
+                    |&phash| match Media::find_csam_by_phash(repo.clone(), phash) {
+                        Some(distance_hamming) => (phash, distance_hamming),
+                        None => (0u64, 0u32),
+                    },
+                )
+                .filter(|phash| phash.0 != 0 && phash.1 > 0)
+                .reduce(|lhs, rhs| if lhs.1 < rhs.1 { lhs } else { rhs })
+                .unwrap_or((0u64, 0));
+
+            return Some(MatchType::PHash(phash.0, phash.1));
         }
 
         None
